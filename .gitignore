@@ -1,0 +1,5 @@
+.env
+
+
+# Ignore all files in the api directory
+api/connection.php

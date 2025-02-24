@@ -1,0 +1,277 @@
+body {
+    font-family: 'Poppins', sans-serif;
+    overflow: hidden;
+}
+
+
+textarea {
+    resize: none;
+}
+
+.overflow-y-scroll {
+    overflow-y: scroll;
+}
+
+.overflow-x-hidden {
+    overflow-x: hidden;
+}
+
+.smaller-text td,
+.smaller-text th {
+    font-size: 0.7rem;
+    padding: 0.1rem;
+}
+
+.toast {
+    background-color: rgb(40, 40, 40);
+}
+
+.toast .toast-header {
+    background-color: rgb(48, 48, 48);
+}
+
+.toast .toast-body {
+    color: white;
+}
+
+.toast strong {
+    color: white;
+    font-size: 1.4rem;
+    font-weight: lighter;
+}
+
+.wrapper {
+    display: flex;
+}
+
+.main {
+    min-height: 100vh;
+    width: 100%;
+    overflow: hidden;
+    transition: all 0.35s ease-in-out;
+    background-color: white;
+}
+
+.table thead {
+    background-color: var(--primary_color);
+}
+
+.titleCategory {
+    font-weight: bolder;
+}
+
+.btn-account-primary {
+    background-color: var(--primary_color);
+    color: var(--primary_text_color);
+}
+
+.nav .nav-link {
+    color: var(--primary_color) !important;
+    border: 1px solid var(--primary_color) !important;
+    border-bottom-color: var(--sencodary_color) !important;
+    margin-left: 0.5rem;
+    margin-right: 0.5rem;
+}
+
+.nav .nav-link:hover,
+.nav .active {
+    background-color: var(--primary_color) !important;
+    border-bottom: 1px solid var(--primary_color) !important;
+}
+
+.nav .nav-link:hover *,
+.nav .active * {
+    color: var(--primary_text_color) !important;
+}
+
+input[type=number]::-webkit-inner-spin-button {
+    -webkit-appearance: none !important;
+}
+
+
+.table-scroll thead>tr>th {
+    border: none;
+    color: var(--primary_text_color);
+}
+
+table tbody {
+    display: block;
+    overflow-y: scroll;
+}
+
+table thead,
+table tbody tr {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+}
+
+.table-scroll tbody::-webkit-scrollbar {
+    background-color: #fff;
+    width: 5px;
+}
+
+/* background of the scrollbar except button or resizer */
+.table-scroll tbody::-webkit-scrollbar-track {
+    background-color: #fff;
+}
+
+/* scrollbar itself */
+.table-scroll tbody::-webkit-scrollbar-thumb {
+    background-color: #babac0;
+    border-radius: 0px;
+    border: none;
+}
+
+
+
+.stv-scroll {
+    overflow-y: scroll;
+    overflow-x: hidden;
+}
+
+
+.stv-scroll::-webkit-scrollbar {
+    background-color: #fff;
+    width: 5px;
+}
+
+/* background of the scrollbar except button or resizer */
+.stv-scroll::-webkit-scrollbar-track {
+    background-color: #fff;
+}
+
+/* scrollbar itself */
+.stv-scroll::-webkit-scrollbar-thumb {
+    background-color: #babac0;
+    border-radius: 0px;
+    border: none;
+}
+
+.card-quantity {
+    width: 120px;
+    height: 50px;
+    background-color: #e6e6e6;
+}
+
+.card-quantity .pack h2 {
+    font-size: 13px;
+    font-weight: normal;
+    margin-bottom: -1px !important;
+}
+
+.card-quantity .pack h1 {
+    font-size: 17px;
+    font-weight: bolder;
+}
+
+.card-quantity .quantity p {
+    font-size: 16px;
+    font-weight: bolder;
+}
+
+.fs-7 {
+    font-size: 0.925rem !important;
+}
+
+#animationContainer {
+    position: relative;
+    width: 250px;
+    /* O el ancho que prefieras */
+    height: 250px;
+    /* O la altura que prefieras */
+    overflow: hidden;
+    margin: 0 auto;
+}
+
+#mainCircle {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 100px;
+    /* Ajusta el tamaño según necesites */
+    height: 100px;
+    /* Ajusta el tamaño según necesites */
+    transform: translate(-50%, -50%);
+    background-color: var(--primary_color);
+    border-radius: 50%;
+}
+
+.smallCircle {
+    position: absolute;
+    width: 30px;
+    /* Ajusta el tamaño según necesites */
+    height: 30px;
+    /* Ajusta el tamaño según necesites */
+    background-color: var(--primary_color);
+    border-radius: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+    transition: all 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#btnDictAI {
+    transition: all 0.3s ease;
+    opacity: 1;
+}
+
+#btnDictAI.hover-effect {
+    opacity: 0.8;
+    /* Cambia la opacidad al hacer hover */
+}
+
+
+
+@keyframes heartbeat {
+    0% {
+        transform: translate(-50%, -50%) scale(0.8);
+        opacity: 0.8;
+    }
+
+    50% {
+        transform: translate(-50%, -50%) scale(0.7);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translate(-50%, -50%) scale(0.8);
+        opacity: 0.8;
+    }
+}
+
+@keyframes pulse {
+    0% {
+        transform: translate(-50%, -50%) scale(0.8);
+    }
+
+    50% {
+        transform: translate(-50%, -50%) scale(1);
+    }
+
+    100% {
+        transform: translate(-50%, -50%) scale(0.8);
+    }
+}
+
+/* Estilo para la fila seleccionada (efecto pulsante) */
+tr.highlighted {
+    animation: pulse_select 1.5s infinite;
+}
+
+@keyframes pulse_select {
+    0% {
+        background-color: #0e223836;
+    }
+
+    50% {
+        background-color: #ffffff;
+    }
+
+    100% {
+        background-color: #0e223836;
+    }
+}
+
+tr.ready {
+    background-color: #9ecfaa !important;
+}
