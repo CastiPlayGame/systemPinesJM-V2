@@ -945,6 +945,14 @@ class VerifyPass {
     }
 
     updateVerify() {
+        // Verificar y limpiar items que ya no existen en Session
+        verifyItemsPass = verifyItemsPass.filter(passedItem => {
+            const [code, depo] = passedItem.split('_');
+            return Object.values(Session.val.items).some(item => 
+                item.code === code && item.depo === depo
+            );
+        });
+
         const cont = $(document).find("#verifyList")
         cont.find("#codePassed").html("Productos Revisados<br>" + verifyItemsPass.length + " / " + Object.keys(Session.val.items).length);
         if (verifyItemsPass.length == Object.keys(Session.val.items).length) {
