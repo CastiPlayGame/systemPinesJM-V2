@@ -78,6 +78,42 @@ if (isset($_POST['Inventory'])) {
                     die('close');
                 }
                 break;
+            case 'EditSamples':
+                $connObject = new Connection();
+                $conn = $connObject->Connect();
+
+                $sql = "SELECT JSON_VALUE(quantity, '$.\"" . $_POST['depo'] . "\".Samples') as Samples FROM `items` WHERE id='" . $_POST['id'] . "'";
+                $result = mysqli_query($conn, $sql);
+
+                if (mysqli_num_rows($result) > 0) {
+                    $row = mysqli_fetch_assoc($result);
+                    echo '
+                    <div class="modal-header">
+                        <h5 class="modal-title">Piezas Sueltas</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <h6>Hay ' . ($row['Samples'] ?? 0) . ' Muestras</h6>
+                        <div class="mb-3">
+                            <label for="quantity" class="form-label">Cantidad</label>
+                            <input type="text" class="form-control shadow-none" id="quantity" oninput="numberInput(this)" autocomplete="off">
+                        </div>
+                    </div>
+                    <div class="modal-footer operations" data-type="samples">
+                        <button type="button" class="btn btn-dark" data-bs-dismiss="modal" id="add">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
+                        <button type="button" class="btn btn-dark" data-bs-dismiss="modal" id="sub">
+                            <i class="bi bi-dash-lg"></i>
+                        </button>
+                        <button type="button" class="btn btn-dark" data-bs-dismiss="modal" id="set">
+                            <i class="bi bi-pencil-fill"></i>
+                        </button>
+                    </div>';
+                } else {
+                    die('close');
+                }
+                break;
             case 'NewPacket':
                 echo '
                 <div class="modal-header">

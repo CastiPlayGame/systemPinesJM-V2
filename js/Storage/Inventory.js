@@ -80,6 +80,23 @@ function updateItem() {
                     </td>
                 </tr>
             `;
+
+            contentList += `
+                <tr>
+                    <td colspan="3">
+                        <hr>
+                    </td>
+                </tr>
+                <tr>
+                    <th class="col-4" scope="row">Muestras</th>
+                    <td class="col-3">${Quantity[depoSelect].Samples ?? 0}</td>
+                    <td class="col-3">${Quantity[depoSelect].Samples ?? 0}</td>
+                    <td class="col-2">
+                        <button type="button" class="btn btn-outline-dark shadow-none" modal-data-locate="Inventory&Item&Mode=EditSamples&id=${id}&depo=${depoSelect}" id="modalBtn"><i class="bi bi-pencil-square"></i></button>
+                    </td>
+                </tr>
+            `;
+
         }
 
         $("#titleDeposits h5").text("Cantidad Total: " + totalItem);
@@ -550,6 +567,9 @@ $(document).ready(function () {
         var dataSend = `Quantity&Pcs&${btn.attr('id')}&item=${temp}&deposit=${$("input[name=\'depositnr\']:checked").val()}&num=${$('#quantity').val()}`;
         if (btn.parent().attr('data-type') == "pack") {
             dataSend = `Quantity&Packet&${btn.attr('id')}&item=${temp}&deposit=${$("input[name=\'depositnr\']:checked").val()}&pack=${btn.parent().attr('data-packet-num')}&num=${$('#quantity').val()}`
+        }
+        if (btn.parent().attr('data-type') == "samples") {
+            dataSend = `Quantity&Samples&${btn.attr('id')}&item=${temp}&deposit=${$("input[name=\'depositnr\']:checked").val()}&num=${$('#quantity').val()}`
         }
         $.ajax({
             beforeSend: function () {

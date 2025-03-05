@@ -3,7 +3,6 @@ include('connection.php');
 include('code-module.php');
 
 use FFMpeg\FFMpeg;
-use FFMpeg\Coordinate\TimeCode;
 use FFMpeg\Format\Audio\Wav;
 
 if (isset($_POST['Quantity'])) {
@@ -139,8 +138,32 @@ if (isset($_POST['Quantity'])) {
             $quantity[$depoTo]['Packets'][$key] = $quantity[$depoTo]['Packets'][$key] - $value;
         }
         $opT = "Traslado de Depositos Exitoso";
-    }
+    } elseif (isset($_POST['Samples'])) {
+        if (!array_key_exists('Samples', $quantity[$depo])) {
+            $quantity[$depo]['Samples'] = 0;
+        }
+        if (isset($_POST['add'])) {
+            $quantity[$depo]['Samples'] = intval($quantity[$depo]['Samples']) + $num;
+            $opT[1] = "Se Añadieron Muestras";
 
+            $data["message"] = "Se Añadieron Muestras";
+            $data["total"] = $num;
+        }
+        if (isset($_POST['sub'])) {
+            $quantity[$depo]['Samples'] = intval($quantity[$depo]['Samples']) - $num;
+            $opT[1] = "Se Eliminaron Muestras";
+
+            $data["message"] = "Se Eliminaron Muestras";
+            $data["total"] = $num;
+        }
+        if (isset($_POST['set'])) {
+            $quantity[$depo]['Samples'] = $num;
+            $opT[1] = "Se Establecio un valor de Muestras";
+
+            $data["message"] = "Se Cambio las Muestras";
+            $data["total"] = $num;
+        }
+    }
     if ($opT[0] != false) {
         krsort($quantity[$depo]['Packets']);
         if (!mysqli_query($conn, "UPDATE items SET quantity='" . json_encode($quantity) . "' WHERE id='$code'")) {
