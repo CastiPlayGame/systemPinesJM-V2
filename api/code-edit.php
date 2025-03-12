@@ -489,6 +489,9 @@ if (isset($_POST['User'])) {
     $address = isset($_POST['address']) ? $_POST['address'] : '';
     $state = isset($_POST['state']) ? $_POST['state'] : '';
     $isUp = isset($_POST['isUp']) ? true : false;
+    $ban_canLogin = isset($_POST['ban_canLogin']) ? true : false;
+    $ban_canBuy = isset($_POST['ban_canBuy']) ? true : false;
+    $ban_full = isset($_POST['ban_full']) ? true : false;
 
     $acctPersonal = array(
         "tlf" => array(
@@ -514,10 +517,10 @@ if (isset($_POST['User'])) {
             "items" => array()
         ),
         "banned" => array(
-            "ban" => true,
+            "ban" => $ban_full,
             "unBanDate" => "17/02/2024",
-            "canBuy" => false,
-            "canLogin" => false
+            "canBuy" => $ban_canBuy,
+            "canLogin" => $ban_canLogin
         ),
         "codeVerification" => null
     );

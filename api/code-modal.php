@@ -432,138 +432,152 @@ if (isset($_POST['DataBase'])) {
             case 'New':
                 echo '
                     <script>
-                        
+                        // Puedes añadir aquí cualquier código JavaScript adicional
                     </script>
-                    
                     <form id="newUser" autocomplete="off" data-params-post="">
-                    <div class="modal-header">
-                        <div class="row row-cols-md-1 row-cols-lg-auto w-100">        
-                            <h1 class="col-12 col-md-3 modal-title fs-4 align-text" id="title" style="color:var(--secondary_text_color)">Nuevo</h1>   
-                            <nav class="d-flex col-12 col-md-9 justify-content-center justify-content-md-start">
-                                <div class="nav nav-pills" id="nav-tab" role="tablist">
-                                    <button class="nav-link active" id="nav-profile-tab" data-bs-toggle="tab" data-bs-target="#nav-profile" type="button" role="tab" aria-controls="nav-profile" aria-selected="true">
-                                        <i class="bi bi-file-earmark-person h4 m-0"></i>
-                                    </button>
-                                    <button class="nav-link" id="nav-advanced-tab" data-bs-toggle="tab" data-bs-target="#nav-advanced" type="button" role="tab" aria-controls="nav-advanced" aria-selected="false" hidden>
-                                        <i class="bi bi bi-map h4 m-0"></i>
-                                    </button>
-                                </div>
-                            </nav>
+                        <div class="modal-header">
+                            <div class="row row-cols-md-1 row-cols-lg-auto w-100">
+                                <h1 class="col-12 col-md-3 modal-title fs-4 align-text" id="title" style="color:var(--secondary_text_color)">Nuevo</h1>
+                                <nav class="d-flex col-12 col-md-9 justify-content-center justify-content-md-start">
+                                    <div class="nav nav-pills" id="nav-tab" role="tablist">
+                                        <button class="nav-link active" id="nav-profile-tab" data-bs-toggle="tab" data-bs-target="#nav-profile" type="button" role="tab" aria-controls="nav-profile" aria-selected="true">
+                                            <i class="bi bi-file-earmark-person h4 m-0"></i>
+                                        </button>
+                                        <button class="nav-link" id="nav-ban-tab" data-bs-toggle="tab" data-bs-target="#nav-ban" type="button" role="tab" aria-controls="nav-ban" aria-selected="false">
+                                            <i class="bi bi-exclamation-octagon h4 m-0"></i>
+                                        </button>
+                                        <button class="nav-link" id="nav-advanced-tab" data-bs-toggle="tab" data-bs-target="#nav-advanced" type="button" role="tab" aria-controls="nav-advanced" aria-selected="false" hidden>
+                                            <i class="bi bi-map h4 m-0"></i>
+                                        </button>
+                                    </div>
+                                </nav>
+                            </div>
+                            <button type="button" class="btn-close me-1" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
-                        <button type="button" class="btn-close me-1" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-
-                        <div class="tab-content" id="nav-tabContent">
-                            <div class="tab-pane fade show active" id="nav-profile" role="tabpanel" aria-labelledby="nav-profile-tab" tabindex="0">        
-                                <div class="d-flex justify-content-center w-100" id="radiosBtnTypeAccount">
-                                    <div class="form-check m-2">
-                                        <input class="form-check-input shadow-none" type="radio" name="typeAccount" value="0" id="typeAccount_Client" checked>
-                                        <label class="form-check-label" for="typeAccount_Client">Cliente</label>
-                                    </div>
-                                    <div class="form-check m-2">
-                                        <input class="form-check-input shadow-none" type="radio" name="typeAccount" value="1" id="typeAccount_Company">
-                                        <label class="form-check-label" for="typeAccount_Company">Empresa</label>
-                                    </div>
-                                    <div class="form-check m-2">
-                                        <input class="form-check-input" type="checkbox" id="isUp" name="isUp">
-                                        <label class="form-check-label" for="isUp">
-                                            Mayor?
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="gy-3 row row-cols-sm-1 row-cols-lg-auto w-100 mt-2">          
-                                    <div class="col-12 col-sm-6" id="divUser">
-                                        <label for="" class="form-label">Usuario</label>
-                                        <input type="text" class="form-control shadow-none" name="username" minlength="6" maxlength="32">
-                                    </div>
-                                    <div class="col-12 col-sm-6" id="divPassword">
-                                        <label for="" class="form-label">Contraseña</label>
-                                        <input type="text" class="form-control shadow-none" name="password" minlength="6" maxlength="24">
-                                    </div>   
-                                    <div class="col-6" id="divName">
-                                        <label for="" class="form-label">Nombre</label>
-                                        <input type="text" class="form-control shadow-none" name="name" minlength="2" maxlength="64">
-                                    </div>
-                                    <div class="col-6" id="divLastName">
-                                        <label for="" class="form-label">Apellido</label>
-                                        <input type="text" class="form-control shadow-none" name="lastName" minlength="2" maxlength="64">
-                                    </div>
-                                    <div class="col-sm-12 col-md-6 col-lg-7">
-                                        <label for="" class="form-label">Email (Opcional)</label>
-                                        <input type="email" class="form-control shadow-none" name="email" minlength="4">
-                                    </div>
-                                    <div class="col-12 col-sm-6 col-lg-5" id="divPhone">
-                                        <label for="" class="form-label">Tlf.</label>
-                                        <div class="input-group">
-                                            <select class="form-select shadow-none" style="max-width: fit-content;" name="operator">
-                                                ';
-                                                foreach ($typeTlf as $x => $y) {
-                                                    echo '<option value="' . $x . '">0' . $y . '</option>';
-                                                }
-                                                echo '
-                                            </select>
-                                            <input type="text" class="form-control shadow-none" name="number" minlength="7" maxlength="7" oninput="numberInput(this)">
+                        <div class="modal-body">
+                            <div class="tab-content" id="nav-tabContent">
+                                <!-- Pestaña de Datos Generales -->
+                                <div class="tab-pane fade show active" id="nav-profile" role="tabpanel" aria-labelledby="nav-profile-tab" tabindex="0">
+                                    <div class="d-flex justify-content-center w-100" id="radiosBtnTypeAccount">
+                                        <div class="form-check m-2">
+                                            <input class="form-check-input shadow-none" type="radio" name="typeAccount" value="0" id="typeAccount_Client" checked>
+                                            <label class="form-check-label" for="typeAccount_Client">Cliente</label>
+                                        </div>
+                                        <div class="form-check m-2">
+                                            <input class="form-check-input shadow-none" type="radio" name="typeAccount" value="1" id="typeAccount_Company">
+                                            <label class="form-check-label" for="typeAccount_Company">Empresa</label>
+                                        </div>
+                                        <div class="form-check m-2">
+                                            <input class="form-check-input" type="checkbox" id="isUp" name="isUp">
+                                            <label class="form-check-label" for="isUp">Mayor?</label>
                                         </div>
                                     </div>
-                                    <div class="col-6 col-md-12 col-lg-4" id="divIdent">
-                                        <label for="" class="form-label">Identificación</label>
-                                        <div class="input-group" >
-                                            <select class="form-select shadow-none" style="max-width: fit-content;" name="typeIdent">
+                                    <div class="gy-3 row row-cols-sm-1 row-cols-lg-auto w-100 mt-2">
+                                        <div class="col-12 col-sm-6" id="divUser">
+                                            <label class="form-label">Usuario</label>
+                                            <input type="text" class="form-control shadow-none" name="username" minlength="6" maxlength="32">
+                                        </div>
+                                        <div class="col-12 col-sm-6" id="divPassword">
+                                            <label class="form-label">Contraseña</label>
+                                            <input type="text" class="form-control shadow-none" name="password" minlength="6" maxlength="24">
+                                        </div>
+                                        <div class="col-6" id="divName">
+                                            <label class="form-label">Nombre</label>
+                                            <input type="text" class="form-control shadow-none" name="name" minlength="2" maxlength="64">
+                                        </div>
+                                        <div class="col-6" id="divLastName">
+                                            <label class="form-label">Apellido</label>
+                                            <input type="text" class="form-control shadow-none" name="lastName" minlength="2" maxlength="64">
+                                        </div>
+                                        <div class="col-sm-12 col-md-6 col-lg-7">
+                                            <label class="form-label">Email (Opcional)</label>
+                                            <input type="email" class="form-control shadow-none" name="email" minlength="4">
+                                        </div>
+                                        <div class="col-12 col-sm-6 col-lg-5" id="divPhone">
+                                            <label class="form-label">Tlf.</label>
+                                            <div class="input-group">
+                                                <select class="form-select shadow-none" style="max-width: fit-content;" name="operator">
+                                                    ';
+                                                    foreach ($typeTlf as $x => $y) {
+                                                        echo '<option value="' . $x . '">0' . $y . '</option>';
+                                                    }
+                echo '                          </select>
+                                                <input type="text" class="form-control shadow-none" name="number" minlength="7" maxlength="7" oninput="numberInput(this)">
+                                            </div>
+                                        </div>
+                                        <div class="col-6 col-md-12 col-lg-4" id="divIdent">
+                                            <label class="form-label">Identificación</label>
+                                            <div class="input-group">
+                                                <select class="form-select shadow-none" style="max-width: fit-content;" name="typeIdent">
+                                                    ';
+                                                    foreach ($typeIdent as $x => $y) {
+                                                        echo '<option value="' . $x . '">' . $y . '</option>';
+                                                    }
+                echo '                          </select>
+                                                <input type="text" class="form-control shadow-none" name="numberIdent" minlength="5" maxlength="30" oninput="numberInput(this)">
+                                            </div>
+                                        </div>
+                                        <div class="col-4 col-md-4 col-lg-3" id="divPrice">
+                                            <label class="form-label">Precio</label>
+                                            <select class="form-select shadow-none" name="price">
                                                 ';
-                                                foreach ($typeIdent as $x => $y) {
+                                                for ($i = 0; $i < $price; $i++) {
+                                                    echo '<option value="' . $i . '">Precio ' . ($i + 1) . '</option>';
+                                                }
+                echo '                      </select>
+                                        </div>
+                                        <div class="col-5 col-md-5 col-lg-3" id="divState">
+                                            <label class="form-label">Estado que opera</label>
+                                            <select class="form-select shadow-none" name="state">
+                                                ';
+                                                foreach ($states as $x => $y) {
                                                     echo '<option value="' . $x . '">' . $y . '</option>';
                                                 }
-                                                echo '
-                                            </select>
-                                            <input type="text" class="form-control shadow-none" name="numberIdent" minlength="5" maxlength="30" oninput="numberInput(this)">
+                echo '                      </select>
+                                        </div>
+                                        <div class="col-3 col-md-3 col-lg-2" id="divCredit">
+                                            <label class="form-label">Crédito</label>
+                                            <input type="number" value="0" class="form-control shadow-none" name="credit">
+                                        </div>
+                                        <div class="col-12" id="divAdress">
+                                            <label class="form-label">Dirección</label>
+                                            <textarea class="form-control" rows="2" name="address"></textarea>
                                         </div>
                                     </div>
-                                    <div class="col-4 col-md-4 col-lg-3" id="divPrice">
-                                        <label for="" class="form-label">Precio</label>
-                                        <select class="form-select shadow-none" name="price">
-                                            ';
-                                            for ($i = 0; $i < $price; $i++) {
-                                                echo '<option value="' . $i . '">Precio ' . ($i + 1) . '</option>';
-                                            }
-                                            echo '
-                                        </select>
+                                </div>
+                                <!-- Pestaña de Baneos -->
+                                <div class="tab-pane fade" id="nav-ban" role="tabpanel" aria-labelledby="nav-ban-tab" tabindex="0">
+                                    <div class="container mt-3">
+                                        <h5 class="mb-3">Opciones de Baneo</h5>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="ban_canLogin" id="ban_canLogin">
+                                            <label class="form-check-label" for="ban_canLogin">No puede iniciar sesión (canLogin)</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="ban_canBuy" id="ban_canBuy">
+                                            <label class="form-check-label" for="ban_canBuy">No puede comprar (canBuy)</label>
+                                        </div>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="ban_full" id="ban_full">
+                                            <label class="form-check-label" for="ban_full">Totalmente baneado (ban)</label>
+                                        </div>
                                     </div>
-                                    <div class="col-5 col-md-5 col-lg-3" id="divState">
-                                        <label for="divState" class="form-label">Estado que opera</label>
-                                        <select class="form-select shadow-none" name="state">
-                                            ';
-                                            foreach ($states as $x => $y) {
-                                                echo '<option value="' . $x . '">' . $y . '</option>';
-                                            }
-                                            echo '
-                                        </select>
-                                    </div>
-  
-                                    <div class="col-3 col-md-3 col-lg-2" id="divCredit">
-                                        <label for="" class="form-label">Credito</label>
-                                        <input type="number" value="0" class="form-control shadow-none" name="credit">
-                                    </div>
-                                    <div class="col-12" id="divAdress">
-                                        <label for="" class="form-label">Direccion</label>
-                                        <textarea class="form-control" id="exampleFormControlTextarea1" rows="2" name="address"></textarea>
-                                    </div>
-                                </div> 
+                                </div>
+                                <!-- Pestaña Avanzada (opcional) -->
+                                <div class="tab-pane fade" id="nav-advanced" role="tabpanel" aria-labelledby="nav-advanced-tab" tabindex="1">
+                                    <!-- Contenido avanzado opcional -->
+                                </div>
                             </div>
-                            <div class="tab-pane fade" id="nav-advanced" role="tabpanel" aria-labelledby="nav-advanced-tab" tabindex="1">
-                            </div>
-                        </div>   
-
-                    </div>
-                    <div class="modal-footer">
-                        <div class="d-flex align-items-center">
-                            <button type="submit" class="btn btn-dark btn-account-primary shadow-none border-0 w-100"
-                                data-mdb-ripple-init>Crear</button>
                         </div>
-                    </div>
+                        <div class="modal-footer">
+                            <div class="d-flex align-items-center">
+                                <button type="submit" class="btn btn-dark btn-account-primary shadow-none border-0 w-100" data-mdb-ripple-init>Crear</button>
+                            </div>
+                        </div>
                     </form>
-                    ';
+                ';
                 break;
+
             case 'Edit':
 
                 $connObject = new Connection();
@@ -580,6 +594,11 @@ if (isset($_POST['DataBase'])) {
                 JSON_UNQUOTE(JSON_EXTRACT(CAST(AES_DECRYPT(acctPersonal,'" . CLAVE_AES . "') AS CHAR),'$.persId.type')) AS persIdtype,
                 JSON_UNQUOTE(JSON_EXTRACT(CAST(AES_DECRYPT(acctPersonal,'" . CLAVE_AES . "') AS CHAR),'$.persId.idenfication')) AS persIdidenfication,
                 JSON_UNQUOTE(JSON_EXTRACT(acctAdvanced,'$.price')) AS Prices,
+                
+                JSON_UNQUOTE(JSON_EXTRACT(acctAdvanced,'$.banned.canLogin')) AS canLogin,
+                JSON_UNQUOTE(JSON_EXTRACT(acctAdvanced,'$.banned.ban')) AS ban,
+                JSON_UNQUOTE(JSON_EXTRACT(acctAdvanced,'$.banned.canBuy')) AS canBuy,
+
                 JSON_UNQUOTE(JSON_EXTRACT(acctAdvanced,'$.credit')) AS Credits,
                 COALESCE(JSON_UNQUOTE(JSON_EXTRACT(CAST(AES_DECRYPT(acctAddresses,'" . CLAVE_AES . "') AS CHAR),'$[0].address')), '') AS address
 
@@ -602,6 +621,15 @@ if (isset($_POST['DataBase'])) {
                             if ( isset($row['isUp']) && $row['isUp']){
                                 echo '$(document).find("#editUser input[name=\'isUp\']").attr("checked", true);';
                             }
+                            if ( isset($row['ban']) && $row['ban'] == "true"){
+                                echo '$(document).find("#editUser input[name=\'ban_full\']").attr("checked", true);';
+                            }
+                            if ( isset($row['canLogin']) && $row['canLogin'] == "true"){
+                                echo '$(document).find("#editUser input[name=\'ban_canLogin\']").attr("checked", true);';
+                            }
+                            if ( isset($row['canBuy']) && $row['canBuy'] == "true"){
+                                echo '$(document).find("#editUser input[name=\'ban_canBuy\']").attr("checked", true);';
+                            }
                             echo '
                             $(document).find("#editUser select[name=\'typeIdent\'] option").eq(' . ($row['persIdtype']) . ').attr("selected", true);
                             $(document).find("#editUser select[name=\'price\'] option").eq(' . ($row['Prices']) . ').attr("selected", true);
@@ -617,6 +645,9 @@ if (isset($_POST['DataBase'])) {
                                 <div class="nav nav-pills" id="nav-tab" role="tablist">
                                     <button class="nav-link active" id="nav-profile-tab" data-bs-toggle="tab" data-bs-target="#nav-profile" type="button" role="tab" aria-controls="nav-profile" aria-selected="true">
                                         <i class="bi bi-file-earmark-person h4 m-0"></i>
+                                    </button>
+                                    <button class="nav-link" id="nav-ban-tab" data-bs-toggle="tab" data-bs-target="#nav-ban" type="button" role="tab" aria-controls="nav-ban" aria-selected="false">
+                                        <i class="bi bi-exclamation-octagon h4 m-0"></i>
                                     </button>
                                     <button class="nav-link" id="nav-advanced-tab" data-bs-toggle="tab" data-bs-target="#nav-advanced" type="button" role="tab" aria-controls="nav-advanced" aria-selected="false" hidden>
                                         <i class="bi bi bi-map h4 m-0"></i>
@@ -723,6 +754,24 @@ if (isset($_POST['DataBase'])) {
                                     </div>
                                 </div> 
                             </div>
+                            <!-- Pestaña de Baneos -->
+                            <div class="tab-pane fade" id="nav-ban" role="tabpanel" aria-labelledby="nav-ban-tab" tabindex="0">
+                                <div class="container mt-3">
+                                    <h5 class="mb-3">Opciones de Baneo</h5>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="ban_canLogin" id="ban_canLogin">
+                                        <label class="form-check-label" for="ban_canLogin">No puede iniciar sesión (canLogin)</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="ban_canBuy" id="ban_canBuy">
+                                        <label class="form-check-label" for="ban_canBuy">No puede comprar (canBuy)</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="ban_full" id="ban_full">
+                                        <label class="form-check-label" for="ban_full">Totalmente baneado (ban)</label>
+                                    </div>
+                                </div>
+                            </div>
                             <div class="tab-pane fade" id="nav-advanced" role="tabpanel" aria-labelledby="nav-advanced-tab" tabindex="1">
                                 
                             </div>
@@ -746,6 +795,9 @@ if (isset($_POST['DataBase'])) {
                 $sql = "SELECT id,
                 JSON_EXTRACT(CAST(AES_DECRYPT(acctPersonal,'" . CLAVE_AES . "') AS CHAR),'$.user') AS nameAndLastName,
                 JSON_UNQUOTE(JSON_EXTRACT(CAST(AES_DECRYPT(acctPersonal,'" . CLAVE_AES . "') AS CHAR),'$.persId.type')) AS persIdtype,
+                JSON_UNQUOTE(JSON_EXTRACT(acctAdvanced,'$.banned.canLogin')) AS canLogin,
+                JSON_UNQUOTE(JSON_EXTRACT(acctAdvanced,'$.banned.ban')) AS ban,
+                JSON_UNQUOTE(JSON_EXTRACT(acctAdvanced,'$.banned.canBuy')) AS canBuy,
                 JSON_UNQUOTE(JSON_EXTRACT(CAST(AES_DECRYPT(acctPersonal,'" . CLAVE_AES . "') AS CHAR),'$.persId.idenfication')) AS persIdidenfication
                 FROM `users`";
 
@@ -773,22 +825,24 @@ if (isset($_POST['DataBase'])) {
                             </thead>
                             <div>
                             <tbody class="table-group-divider" style="max-height: 26rem;">';
-                    while ($row = mysqli_fetch_assoc($result)) {
-                        echo '
-                            <tr id="client_' . $row['id'] . '">
-                                <th class="col-3" scope="row">' . $typeIdent[$row['persIdtype']] . '-' . $row['persIdidenfication'] . '</th>
-                                <td class="col-8">
-                                    <span class="d-inline-block text-truncate" style="max-width: 95%;">
-                                        ' . implode(' ', json_decode($row['nameAndLastName'])) . '
-                                    </span>
-                                </td>
-                                <td class="col-1">
-                                    <input class="form-check-input" value="' . $row['id'] . '" data-type-ident="' . $row['persIdtype'] . '" data-ident="' . $row['persIdidenfication'] . '" data-name="' . implode(' ', json_decode($row['nameAndLastName'])) . '" type="radio" name="clientlist">
-                                </td>
-                            </tr>
-                            ';
-                    }
+                            while ($row = mysqli_fetch_assoc($result)) {
+                                $isDisabled = ($row["canBuy"] == "true" || $row["ban"] == "true");
+                                echo '
+                                    <tr id="client_' . $row['id'] . '"' . ($isDisabled ? ' class="disabled-row" style="background-color: #f2f2f2; color: #999;"' : '') . '>
+                                        <th class="col-3" scope="row">' . $typeIdent[$row['persIdtype']] . '-' . $row['persIdidenfication'] . '</th>
+                                        <td class="col-8">
+                                            <span class="d-inline-block text-truncate" style="max-width: 70%;">
+                                                ' . implode(' ', json_decode($row['nameAndLastName'])) . '
+                                            </span>
+                                            '. ( $isDisabled ? "<span class=\"d-inline-block text-truncate\" style=\"max-width: 30%;\">    (Baneado)</span>" : "") .'
 
+                                        </td>
+                                        <td class="col-1">
+                                            <input class="form-check-input" value="' . $row['id'] . '" data-type-ident="' . $row['persIdtype'] . '" data-ident="' . $row['persIdidenfication'] . '" data-name="' . implode(' ', json_decode($row['nameAndLastName'])) . '" type="radio" name="clientlist"' . ($isDisabled ? ' disabled' : '') . '>
+                                        </td>
+                                    </tr>
+                                    ';
+                            }
                     echo '    
                             </tbody>
                         </table>
