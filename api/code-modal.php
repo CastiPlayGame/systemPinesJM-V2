@@ -618,7 +618,7 @@ if (isset($_POST['DataBase'])) {
                             $(document).find("#editUser input[type=radio][name=\'typeAccount\']").eq(' . $row['acctType'] . ').prop("checked", true).trigger("change");
                             $(document).find("#editUser select[name=\'operator\'] option").eq(' . ($row['tlfoperator']) . ').attr("selected", true);
                             ';
-                            if ( isset($row['isUp']) && $row['isUp']){
+                            if ( isset($row['isUp']) && $row['isUp'] == "true"){
                                 echo '$(document).find("#editUser input[name=\'isUp\']").attr("checked", true);';
                             }
                             if ( isset($row['ban']) && $row['ban'] == "true"){

@@ -1,3 +1,46 @@
+<?php
+
+// Check if API key is valid
+if (isset($_GET['api_key'])) {
+    include('api/connection.php');
+    $apiKeyFromRequest = $_GET['api_key'];
+    $apiKeyFromEnv = $_ENV['API_KEY_USER'] ?? null;
+
+    if ($apiKeyFromEnv && $apiKeyFromRequest === $apiKeyFromEnv) {
+        // API key is valid, set session
+        session_start();
+        $_SESSION['api_authenticated'] = true;
+
+        // Redirect to clean URL without the api_key parameter
+        $redirectUrl = strtok($_SERVER['REQUEST_URI'], '?');
+        if (!empty($_GET)) {
+            $params = $_GET;
+            unset($params['api_key']); // Remove api_key from parameters
+            if (!empty($params)) {
+                $redirectUrl .= '?' . http_build_query($params);
+            }
+        }
+        header('Location: ' . $redirectUrl);
+        exit;
+    } else {
+        // API key is invalid, return 403 Forbidden
+        header('HTTP/1.1 403 Forbidden');
+        echo 'Access Denied: Invalid API Key';
+        exit;
+    }
+} else {
+    // Check if already authenticated in session
+    session_start();
+    if (!isset($_SESSION['api_authenticated']) || $_SESSION['api_authenticated'] !== true) {
+        // No API key provided and not authenticated, return 403 Forbidden
+        header('HTTP/1.1 403 Forbidden');
+        echo 'Access Denied: API Key Required';
+        exit;
+    }
+}
+?>
+
+
 <!DOCTYPE html>
 <html lang="en">
 
