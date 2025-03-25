@@ -185,6 +185,9 @@ function updateItem() {
                 }
             });
         });
+        if (content == ''){
+            $(document).find('ul.pictures').html('');
+        }
     }
 
     function initializeSortable(uuid) {

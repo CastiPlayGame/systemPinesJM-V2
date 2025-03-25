@@ -53,9 +53,9 @@ const updateShort = 15
 const updateSLong = 60
 const DepositosAvaiable = 1
 
-const urlAPI = "http://localhost/Api/"
-const urlAPI_AI = "http://192.168.1.179:8080"
-const urlAPI_AI_WS = "ws://192.168.1.179:8080"
+const urlAPI = "http://192.168.0.158/newApi/"
+const urlAPI_AI = "http://192.168.0.158:8080"
+const urlAPI_AI_WS = "ws://192.168.0.158:8080"
 
 const apiKey = "NS20gEo80zV6F3WoxFOR5UKgztqilJ63"
 
