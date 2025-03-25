@@ -1091,7 +1091,7 @@ $(document).ready(async function () {
         CoreFunc.updateRowAndFooter()
         CoreFunc.newRow()
     });
-    $(document).on('change', '#inputItem', await function () {
+    $(document).on('change', '#inputItem', function () {
         const inp = $(this);
         const cont = inp.parent().parent();
         var list = [];
@@ -1110,30 +1110,74 @@ $(document).ready(async function () {
                 cache: false,
                 success: function (data) {
                     const i = JSON.parse(data);
-                    if (i[0] == true) {
-                        inp.attr('disabled', true);
-                        cont.find('h1').text(inp.val())
-                        cont.find('#price input').val(i[2])
-
-                        cont.find('#deleteRow,#selectOrigin').attr('hidden', false);
-                        cont.find('#selectOrigin').html(CoreFunc.loadDeposit(i[1]));
-                        cont.find('input#item_discount').val(i[3]);
-                        cont.find('input#item_discountP').prop("checked", i[4]);
-                        cont.find('#selectOrigin').focus();
-                        return;
+                    if (i[0] == false) {
+                        Swal.fire({
+                            title: i[1],
+                            text: " ",
+                            icon: "error",
+                            timer: 1100,
+                            showCancelButton: false,
+                            showConfirmButton: false,
+                            allowOutsideClick: false,
+                            allowEscapeKey: false
+                        });
+                        inp.val('');
                     }
-                    Swal.fire({
-                        title: i[1],
-                        text: " ",
-                        icon: "error",
-                        timer: 1100,
-                        showCancelButton: false,
-                        showConfirmButton: false,
-                        allowOutsideClick: false,
-                        allowEscapeKey: false
-                    });
-                    inp.val('');
+                    
+                    const j = JSON.parse(i[5]) ?? [];
 
+                    if (j.length != 0) {
+                        Swal.fire({
+                            title: 'Ups este Producto Tiene Otra Alternativas',
+                            input: 'select',
+                            inputOptions: j,
+                            inputPlaceholder: 'Seleccione una Alternativa',
+                            showCancelButton: true,
+                            cancelButtonText: 'Cancelar',
+                            inputValidator: (value) => {
+                                return new Promise((resolve) => {
+                                    if (value === '' || value.length === 0) {
+                                        resolve(value);
+                                    } else {
+                                        resolve(false);
+                                    }
+                                });
+                            }
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+
+                                inp.val(j[result.value]);
+                                inp.trigger("change");
+                                
+                            } else if (result.dismiss === Swal.DismissReason.cancel) {
+                                if (i[0] == true) {
+                                    inp.attr('disabled', true);
+                                    cont.find('h1').text(inp.val())
+                                    cont.find('#price input').val(i[2])
+
+                                    cont.find('#deleteRow,#selectOrigin').attr('hidden', false);
+                                    cont.find('#selectOrigin').html(CoreFunc.loadDeposit(i[1]));
+                                    cont.find('input#item_discount').val(i[3]);
+                                    cont.find('input#item_discountP').prop("checked", i[4]);
+                                    cont.find('#selectOrigin').focus();
+                                    return;
+                                }
+                            }
+                        });
+                    } else {
+                        if (i[0] == true) {
+                            inp.attr('disabled', true);
+                            cont.find('h1').text(inp.val())
+                            cont.find('#price input').val(i[2])
+
+                            cont.find('#deleteRow,#selectOrigin').attr('hidden', false);
+                            cont.find('#selectOrigin').html(CoreFunc.loadDeposit(i[1]));
+                            cont.find('input#item_discount').val(i[3]);
+                            cont.find('input#item_discountP').prop("checked", i[4]);
+                            cont.find('#selectOrigin').focus();
+                            return;
+                        }
+                    }
                 },
                 error: function (xhr, status, error) {
                     Swal.fire({

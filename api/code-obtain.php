@@ -104,7 +104,7 @@ if (isset($_POST['Storage'])) {
             $connObject = new Connection();
             $conn = $connObject->Connect();
 
-            $sql = "SELECT `uuid`, `quantity`, `info`, `photos`, `id_provider`,
+            $sql = "SELECT `uuid`, `quantity`, `info`, `photos`, `id_provider`, `suggestions`,
             CAST(AES_DECRYPT(advanced,'" . CLAVE_AES . "') AS CHAR) AS advanced, 
             CAST(AES_DECRYPT(prices,'" . CLAVE_AES . "') AS CHAR) AS prices FROM `items` WHERE id='" . $_POST['id'] . "'
             ";
@@ -157,6 +157,7 @@ if (isset($_POST['Storage'])) {
                         ),'$[" . $price . "]'
                     )
                 ) AS price,
+                i.suggestions,
                 JSON_VALUE(d.advanced, '$.discount.\"" . $_POST['userid'] . "\"[0]') AS discount,
                 JSON_VALUE(d.advanced, '$.discount.\"" . $_POST['userid'] . "\"[1]') AS discountP,
                 JSON_VALUE(d.`advanced`, '$.hide') as hideD,
@@ -209,9 +210,24 @@ if (isset($_POST['Storage'])) {
                 if ($total == 0 or $deposit == 0) {
                     die(json_encode(array(false, 'Depositos Vacios')));
                 }
-                die(json_encode(array(true, $depoAvailable, $row['price'], $row['discount'], $row['discountP'])));
+                die(json_encode(array(true, $depoAvailable, $row['price'], $row['discount'], $row['discountP'], $row["suggestions"])));
             } else {
                 die(json_encode(array(false, 'Producto No Existe')));
+            }
+        } elseif (isset($_POST["VerifyItemSuggest"])){
+            $connObject = new Connection();
+            $conn = $connObject->Connect();
+
+            $sql = "SELECT `uuid` FROM `items` WHERE id='" . $_POST['id'] . "'
+            ";
+            $result = mysqli_query($conn, $sql);
+
+            if (mysqli_num_rows($result) > 0) {
+                $row = mysqli_fetch_assoc($result);
+                mysqli_free_result($result);
+                die(json_encode(array(true)));
+            } else {
+                die(json_encode(array(false)));
             }
         }
     }
