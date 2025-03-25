@@ -120,7 +120,25 @@ function updateItem() {
         $("select[name='depa']").html(content);
     }
 
-    function LaodPictures(pic, uuid) {
+    function LoadSuggestions(suggest) {
+        let content = '';
+        suggest.forEach((item, index) => {
+            content += `
+                <tr>
+                    <td class="col-2 col-md-1">${index + 1}</td>
+                    <td class="col-1">${item}</td>
+                    <td class="col-4 col-md-2">
+                        <button type="button" class="btn btn-outline-dark shadow-none delete-suggest-btn" data-id="${index}">
+                            <i class="bi bi-trash"></i> Eliminar
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+        $(document).find("#nav-recomendation table tbody").html(content);
+    }
+
+    function LoadPictures(pic, uuid) {
         let content = '';
         $.each(pic, function (i, v) {
             // Fetch the image with AJAX
@@ -136,7 +154,7 @@ function updateItem() {
                 success: function (blob) {
                     // Create a Blob URL
                     const imgUrl = URL.createObjectURL(blob);
-                    
+
                     // Add the image to the content
                     content += `
                     <li id="pic_${i}" class="col-3">
@@ -154,7 +172,7 @@ function updateItem() {
                         </div>
                     </li>
                     `;
-                    
+
                     // Update the pictures list once all images are fetched
                     if (i === pic.length - 1) {
                         $("ul.pictures").html(content);
@@ -168,7 +186,7 @@ function updateItem() {
             });
         });
     }
-    
+
     function initializeSortable(uuid) {
         $("#sortable").sortable({
             update: function () {
@@ -267,9 +285,11 @@ function updateItem() {
             if ($("#nav-image-tab").attr("aria-selected") == "true") {
                 const pictures = JSON.parse(obj[1]['photos']);
                 $("form#saveChangesPic").attr("post-data", obj[1]["uuid"])
-                LaodPictures(pictures, obj[1]["uuid"]);
+                LoadPictures(pictures, obj[1]["uuid"]);
             }
-
+            if ($("#nav-recomendation-tab").attr("aria-selected") == "true") {
+                LoadSuggestions(JSON.parse(obj[1]["suggestions"]) ?? []);
+            }
 
 
         }
@@ -359,14 +379,119 @@ function UploadPicture(file) {
 
 $(document).ready(function () {
     // Items
+
     $(document).find(".InventoryList tbody").html(new sweet_loader().loader("Cargando"));
+
+    $(document).on('click', '.delete-suggest-btn', function () {
+        var suggest = $(this).data("id");
+        Swal.fire({
+            title: '¿Estás seguro?',
+            text: "No podrás revertir esto!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, eliminar!',
+            cancelButtonText: 'No, cancelar!',
+            reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    type: 'POST',
+                    url: 'api/code-edit.php',
+                    data: "Item&SuggestSub&suggest=" + suggest + "&itemId=" + $("input[name=\'viewItem\']:checked").val(),
+                    success: function (response) {
+                        const res = JSON.parse(response);
+                        if (res[0]) {
+                            Swal.fire({
+                                title: 'Eliminado',
+                                text: 'El elemento ha sido eliminado.',
+                                icon: 'success'
+                            });
+                        }
+                        updateItem();
+                    },
+                    error: function () {
+                        Swal.fire({
+                            title: 'Error',
+                            text: 'Hubo un problema al agregar la sugerencia.',
+                            icon: 'error'
+                        });
+                    }
+                });
+            }
+        });
+    });
+    $(document).on('click', '.add-suggest-btn', function () {
+        Swal.fire({
+            title: 'Agregar Sugerencia',
+            input: 'text',
+            inputPlaceholder: 'Escribe tu sugerencia aquí...',
+            showCancelButton: true,
+            confirmButtonText: 'Agregar',
+            inputAttributes: {
+                style: 'text-transform: uppercase;' // This will transform the input text to uppercase
+            },
+            cancelButtonText: 'Cancelar',
+            preConfirm: (inputValue) => {
+            return new Promise((resolve) => {
+                if (!inputValue) {
+                Swal.showValidationMessage('El campo no puede estar vacío');
+                return;
+                }
+                $.ajax({
+                type: "POST",
+                url: "api/code-obtain.php",
+                data: "Storage&Items&VerifyItemSuggest&id=" + inputValue,
+                cache: false,
+                success: function (data) {
+                    const i = JSON.parse(data);
+                    if (!i[0]) {
+                    Swal.showValidationMessage('El campo no puede estar vacío');
+                    return;
+                    }
+                    resolve(inputValue.toUpperCase());
+                },
+                error: function (xhr, status, error) {
+                    Swal.showValidationMessage('El campo no puede estar vacío');
+                }
+                });
+            });
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const suggestion = result.value;
+        
+                $.ajax({
+                    type: 'POST',
+                    url: 'api/code-edit.php',
+                    data: "Item&SuggestAdd&suggest=" + suggestion + "&itemId=" + $("input[name=\'viewItem\']:checked").val(),
+                    success: function (response) {
+                        const res = JSON.parse(response);
+                        if (res[0]) {
+                            Swal.fire({
+                                title: 'Sugerencia Agregada',
+                                text: 'La sugerencia ha sido agregada exitosamente.',
+                                icon: 'success'
+                            });
+                        }
+                        updateItem();
+                    },
+                    error: function () {
+                        Swal.fire({
+                            title: 'Error',
+                            text: 'Hubo un problema al agregar la sugerencia.',
+                            icon: 'error'
+                        });
+                    }
+                });
+            }
+        });
+    });
     $(document).on("change", '#clientBlackList', function (event) {
         var clients = $("input#clientBlackList:checked").map(function () {
             return $(this).val();
         }).get();
         $("#clientTitle span").text(clients.length)
     });
-
     $(document).on("change", '#uploadPic', function (event) {
         var file = $(this)[0].files[0];
         // Check file size
@@ -410,6 +535,10 @@ $(document).ready(function () {
     });
     $(document).on("click", ".nav.nav-pills button", function () {
         if ($("#nav-home-tab").attr("aria-selected") == "true") {
+            updateItem();
+            clearInterval(item);
+        }
+        if ($("#nav-recomendation-tab").attr("aria-selected") == "true") {
             updateItem();
             clearInterval(item);
         }
@@ -534,7 +663,6 @@ $(document).ready(function () {
         });
 
     });
-
     $(document).on("keyup", "#qinput", function () {
         var value = $(this).val().toLowerCase();
         $(document).find(".InventoryList tbody tr").filter(function () {

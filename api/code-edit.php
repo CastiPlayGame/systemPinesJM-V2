@@ -388,6 +388,55 @@ if (isset($_POST['Item'])) {
         }
         die(json_encode(['success' => true]));
     }
+    if (isset($_POST['SuggestAdd'])) {
+        $connObject = new Connection();
+        $conn = $connObject->Connect();
+        $suggestCode = $_POST["suggest"];
+        $itemId = $_POST["itemId"];
+
+        $sql = "UPDATE `items` SET `suggestions`=JSON_ARRAY_APPEND(suggestions, '$', ?) WHERE id=?";
+        $stmt = mysqli_prepare($conn, $sql);
+        mysqli_stmt_bind_param($stmt, "ss", $suggestCode, $itemId);
+        if (!mysqli_stmt_execute($stmt)) {
+            die(json_encode(array(false, 'Error: ' . mysqli_stmt_error($stmt))));
+        }
+        die(json_encode(array(true)));
+    }
+
+    if (isset($_POST['SuggestSub'])) {
+        $connObject = new Connection();
+        $conn = $connObject->Connect();
+        $suggestCode = $_POST["suggest"];
+        $itemId = $_POST["itemId"];
+
+        // First, retrieve the current suggestions
+        $stmt = mysqli_prepare($conn, "SELECT suggestions FROM `items` WHERE id=?");
+        mysqli_stmt_bind_param($stmt, "s", $itemId);
+        if (!mysqli_stmt_execute($stmt)) {
+            die(json_encode(array(false, 'Error: ' . mysqli_stmt_error($stmt))));
+        }
+        $result = mysqli_stmt_get_result($stmt);
+        if (mysqli_num_rows($result) != 1) {
+            die(json_encode(array(false, '!Ups. Item No Existe')));
+        }
+        $row = mysqli_fetch_assoc($result);
+        $suggestions = json_decode($row['suggestions'], true);
+
+        // Remove the suggestion
+        if (array_key_exists($suggestCode, $suggestions)) {
+            unset($suggestions[$suggestCode]);
+        }
+
+        // Update the suggestions in the database
+        $updatedSuggestions = json_encode(array_values($suggestions));
+        $sql = "UPDATE `items` SET `suggestions`=? WHERE id=?";
+        $stmt = mysqli_prepare($conn, $sql);
+        mysqli_stmt_bind_param($stmt, "ss", $updatedSuggestions, $itemId);
+        if (!mysqli_stmt_execute($stmt)) {
+            die(json_encode(array(false, 'Error: ' . mysqli_stmt_error($stmt))));
+        }
+        die(json_encode(array(true)));
+    }
 }
 
 if (isset($_POST['Shipping'])) {

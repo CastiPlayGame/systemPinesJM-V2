@@ -53,6 +53,9 @@ if (isset($_GET["Storage"])) {
                         <button class="nav-link active" id="nav-home-tab" data-bs-toggle="tab" data-bs-target="#nav-home" type="button" role="tab" aria-controls="nav-home" aria-selected="true">
                             <i class="bi bi-house h4 m-0"></i>
                         </button>
+                        <button class="nav-link" id="nav-recomendation-tab" data-bs-toggle="tab" data-bs-target="#nav-recomendation" type="button" role="tab" aria-controls="nav-recomendation" aria-selected="false">
+                            <i class="bi bi-journal-bookmark h4 m-0"></i>
+                        </button>
                         <button class="nav-link" id="nav-image-tab" data-bs-toggle="tab" data-bs-target="#nav-image" type="button" role="tab" aria-controls="nav-image" aria-selected="false">
                             <i class="bi bi bi-images h4 m-0"></i>
                         </button>
@@ -140,6 +143,33 @@ if (isset($_GET["Storage"])) {
                             <button type="submit" class="btn btn-dark btn-account-primary shadow-none border-0 mt-4">Guardar</button>
                         </form>
                     </div>
+
+                    <div class="tab-pane fade" id="nav-recomendation" role="tabpanel" aria-labelledby="nav-recomendation-tab" tabindex="1">
+                        <form id="saveInfo" autocomplete="off" post-data="">
+                            <h1 class="modal-title w-100 fs-4 align-text" id="title" style="color:var(--secondary_text_color)">General</h1>   
+                            <div class="gy-3 row row-cols-auto w-100 mt-1 mb-3">          
+                                <div class="col-12">
+                                    <div class="table-responsive rounded-top overflow-hidden flex-grow-1 w-100">
+                                        <table class="table table-striped table-scroll">
+                                            <thead>
+                                                <tr> 
+                                                    <th class="col-2 col-md-1" scope="col">ID</th>
+                                                    <th class="col-1" scope="col">Codigo</th>
+                                                    <th class="col-4 col-md-2" scope="col">Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="table-group-divider" style="max-height: 30vh;">
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-outline-dark btn-account-primary shadow-none border-0 mt-4 me-2 add-suggest-btn">
+                                    <i class="bi bi-plus-lg"></i> Más
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
                     <div class="tab-pane fade" id="nav-image" role="tabpanel" aria-labelledby="nav-image-tab" tabindex="1">
                         <form id="saveChangesPic" autocomplete="off" post-data=""><gs-1></gs-1>
                             <div class="d-flex justify-content-between align-items-center">
@@ -158,17 +188,20 @@ if (isset($_GET["Storage"])) {
                             </div>
                         </form>
                     </div>
+
+
+
                     <div class="tab-pane fade" id="nav-storage" role="tabpanel" aria-labelledby="nav-storage-tab" tabindex="2">
                         <div class="deposits d-flex justify-content-center w-100">
                             <div class="btn-group" role="group" aria-label="Basic radio toggle button group">
                                 ';
-        for ($i = 1; $i <=  $depositsAvailable; $i++) {
-            echo '
+                            for ($i = 1; $i <=  $depositsAvailable; $i++) {
+                                echo '
                                         <input type="radio" class="btn-check" value="' . $i . '" name="depositnr" id="btnradio' . $i . '" autocomplete="off">
                                         <label class="btn btn-outline-dark d-grid shadow-none" for="btnradio' . $i . '"><i class="bi bi-archive h4 m-0"></i> ' . $i . '</label>
                                     ';
-        }
-        echo '
+                            }
+                            echo '
                             </div>
                         </div>
 
