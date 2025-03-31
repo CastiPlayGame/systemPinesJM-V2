@@ -1,7 +1,4 @@
 <?php
-include('connection.php');
-
-
 if (isset($_GET["Storage"])) {
     if (isset($_GET['Inventory'])) {
         echo '
