@@ -948,7 +948,7 @@ class VerifyPass {
         // Verificar y limpiar items que ya no existen en Session
         verifyItemsPass = verifyItemsPass.filter(passedItem => {
             const [code, depo] = passedItem.split('_');
-            return Object.values(Session.val.items).some(item => 
+            return Object.values(Session.val.items).some(item =>
                 item.code === code && item.depo === depo
             );
         });
@@ -1123,8 +1123,9 @@ $(document).ready(async function () {
                         });
                         inp.val('');
                     }
-                    
+
                     const j = JSON.parse(i[5]) ?? [];
+                    j.unshift("Usar el mismo codigo")
 
                     if (j.length != 0) {
                         Swal.fire({
@@ -1145,23 +1146,19 @@ $(document).ready(async function () {
                             }
                         }).then((result) => {
                             if (result.isConfirmed) {
-
                                 inp.val(j[result.value]);
                                 inp.trigger("change");
-                                
                             } else if (result.dismiss === Swal.DismissReason.cancel) {
-                                if (i[0] == true) {
-                                    inp.attr('disabled', true);
-                                    cont.find('h1').text(inp.val())
-                                    cont.find('#price input').val(i[2])
+                                inp.attr('disabled', true);
+                                cont.find('h1').text(inp.val())
+                                cont.find('#price input').val(i[2])
 
-                                    cont.find('#deleteRow,#selectOrigin').attr('hidden', false);
-                                    cont.find('#selectOrigin').html(CoreFunc.loadDeposit(i[1]));
-                                    cont.find('input#item_discount').val(i[3]);
-                                    cont.find('input#item_discountP').prop("checked", i[4]);
-                                    cont.find('#selectOrigin').focus();
-                                    return;
-                                }
+                                cont.find('#deleteRow,#selectOrigin').attr('hidden', false);
+                                cont.find('#selectOrigin').html(CoreFunc.loadDeposit(i[1]));
+                                cont.find('input#item_discount').val(i[3]);
+                                cont.find('input#item_discountP').prop("checked", i[4]);
+                                cont.find('#selectOrigin').focus();
+                                return;
                             }
                         });
                     } else {
@@ -1190,21 +1187,21 @@ $(document).ready(async function () {
         }
     });
 
-    $(document).on('click', 'label[for="dateCredit"]', function() {
+    $(document).on('click', 'label[for="dateCredit"]', function () {
         const today = new Date();
         today.setDate(today.getDate() + 1);
-        
+
         const dd = String(today.getDate()).padStart(2, '0');
         const mm = String(today.getMonth() + 1).padStart(2, '0'); // Enero es 0!
         const yyyy = today.getFullYear();
-        
+
         const currentDate = yyyy + '-' + mm + '-' + dd;
-        
+
         $(this).parent().find('input#dateCredit')[0].setAttribute('min', currentDate);
         $(this).parent().find('input#dateCredit')[0].showPicker();
     });
 
-    $(document).on('change', 'input#dateCredit', function() {
+    $(document).on('change', 'input#dateCredit', function () {
         const selectedDate = new Date($(this).val());
         const today = new Date();
         if (isNaN(selectedDate.getTime())) {
@@ -1486,7 +1483,7 @@ $(document).ready(async function () {
             cont.find("#main").prop("hidden", true);
             cont.find("#codePassed").html("Productos Revisados<br>" + verifyItemsPass.length + " / " + Object.keys(Session.val.items).length);
 
-            if(verifyItemsPass.length != Object.keys(Session.val.items).length){
+            if (verifyItemsPass.length != Object.keys(Session.val.items).length) {
                 $(this).prop("disabled", true);
             }
 
@@ -1528,7 +1525,7 @@ $(document).ready(async function () {
         const cont = $("#verifyList");
         const item = $(this);
         const img = $(document).find('#verifyList img');
-    
+
         const verifyCallback = async (code) => {
             const checkCode = await new VerifyPass().itemExist(code);
             $(item).data('detectorInitialized', false);
@@ -1566,13 +1563,13 @@ $(document).ready(async function () {
                     { "role": "speak", "content": "Cantidad Requerida de " + checkCode.total },
                     { "role": "speak", "content": "Contenido " + checkCode.ttspq.join(", ") }
                 ]);
-    
+
                 let isKeyPressRegistered = false;
-    
+
                 const handleKeyPress = function (e) {
                     if (!isKeyPressRegistered) {
                         isKeyPressRegistered = true;
-    
+
                         if (e.which === 13) {
                             item.val("");
                             cont.find("#quantityTotalV").text("Cantidad Requerida:");
@@ -1585,7 +1582,7 @@ $(document).ready(async function () {
                             new VerifyPass().updateVerify();
                             img.attr('src', './resc/img/No-Image-Placeholder.png');
                             new VerifyPass().updateTableCodes();
-                           
+
                         } else if (e.which === 8) {
                             item.val("");
                             cont.find("#quantityTotalV").text("Cantidad Requerida:");
@@ -1597,12 +1594,12 @@ $(document).ready(async function () {
                             img.attr('src', './resc/img/No-Image-Placeholder.png');
                             new VerifyPass().updateVerify();
                         }
-    
+
                         $(document).off('keydown', handleKeyPress);
                         isKeyPressRegistered = false;
                     }
                 };
-    
+
                 $(document).on('keydown', handleKeyPress);
             }
         };
@@ -1614,8 +1611,8 @@ $(document).ready(async function () {
             });
         }
     });
-    
-    
+
+
 
 
 
