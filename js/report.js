@@ -116,6 +116,30 @@ class ReportsExcel {
                 await ReportsExcel.sendRequest({name, url, body});
             }
         },
+        6: {
+            change: function() {
+                $(document).find("#div_report_search").prop("hidden", true);
+                $(document).find("#div_report_month").prop("hidden", true);
+                $(document).find("#div_report_year").prop("hidden", false);
+
+            },
+            verify: function({ year }){
+                return (year == 'null');
+            },
+            handler: async ({ year }) => {
+                var url = "document/view/xlsx/fnz";
+                var body = {
+                    "type": "FNZ_002",
+                    "filter": {
+                        "startDate": `${year}-01-01`,
+                        "endDate": `${year}-12-31`,
+                    }
+                };
+                var name = "reporte_de_notas";
+            
+                await ReportsExcel.sendRequest({name, url, body});
+            }
+        },
     }
 
     static async sendRequest({ name, url, body }) {
