@@ -105,7 +105,8 @@ if (isset($_POST['Storage'])) {
             $conn = $connObject->Connect();
 
             $sql = "SELECT `uuid`, `quantity`, `info`, `photos`, `id_provider`, `suggestions`,
-            CAST(AES_DECRYPT(advanced,'" . CLAVE_AES . "') AS CHAR) AS advanced, 
+            CAST(AES_DECRYPT(advanced,'" . CLAVE_AES . "') AS CHAR) AS advanced,
+            CAST(AES_DECRYPT(provider,'" . CLAVE_AES . "') AS CHAR) AS provider,
             CAST(AES_DECRYPT(prices,'" . CLAVE_AES . "') AS CHAR) AS prices FROM `items` WHERE id='" . $_POST['id'] . "'
             ";
             $result = mysqli_query($conn, $sql);

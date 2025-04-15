@@ -437,6 +437,43 @@ if (isset($_POST['Item'])) {
         }
         die(json_encode(array(true)));
     }
+
+    if (isset($_POST['Provider'])) {
+        $connObject = new Connection();
+        $conn = $connObject->Connect();
+
+        $uuid = $_POST['uuid'];
+        $provider = json_decode($_POST["provider"], true);
+        $code = $provider["code"];
+
+        $info = json_encode(array(
+            "name" => $provider["name"] ?? "" ,
+            "contact" => $provider["contact"] ?? "",
+            "cost" => $provider["cost"] ?? "",
+            "summary" => $provider["summary"]
+        ));
+
+
+        $stmt = mysqli_prepare($conn, "SELECT id FROM `items` WHERE id = ?");
+        mysqli_stmt_bind_param($stmt, "s", $uuid);
+        if (!mysqli_stmt_execute($stmt)) {
+            die(json_encode(array(false, 'Error: ' . mysqli_stmt_error($stmt))));
+        }
+
+        $result = mysqli_stmt_get_result($stmt);
+        if (mysqli_num_rows($result) != 1) {
+            die(json_encode(array(false, '!Ups. Item No Existe')));
+        }
+
+
+        $sql = "UPDATE `items` SET `provider`=AES_ENCRYPT(?,'" . CLAVE_AES . "'), `id_provider`=? WHERE id=?";
+        $stmt = mysqli_prepare($conn, $sql);
+        mysqli_stmt_bind_param($stmt, "sss", $info, $code, $uuid );
+        if (!mysqli_stmt_execute($stmt)) {
+            die(json_encode(array(false, 'Error: ' . mysqli_stmt_error($stmt))));
+        }
+        die(json_encode(array(true)));
+    }
 }
 
 if (isset($_POST['Shipping'])) {
