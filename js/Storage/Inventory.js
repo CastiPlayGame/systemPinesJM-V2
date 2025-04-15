@@ -4,7 +4,122 @@ var filters = {
     "filter": {}
 };
 
+let provider = {
+    name: undefined,
+    contact: undefined,
+    cost: undefined,
+    code: undefined,
+    summary: []
+};
+// Initialize the UI with provider data
+function initializeUI() {
+    $("#additionalCostsTable tbody").empty();
+    renderProviderData();
 
+    // Add cost rows for each item in provider.summary
+    if (provider.summary && provider.summary.length > 0) {
+        provider.summary.forEach(cost => renderCostRow(cost.name, cost.cost));
+    }
+    updateTotalCost();
+}
+
+// Render main provider data to UI
+function renderProviderData() {
+    $("input[name='provName']").val(provider.name || "");
+    $("input[name='provContact']").val(provider.contact || "");
+    $("input[name='provCode']").val(provider.code || "");
+
+    // Format the provider cost correctly for display
+    const formattedCost = provider.cost ? provider.cost.toString() : "0";
+    $("input[name='providerCost']").val(formattedCost);
+}
+
+// Render a single cost row
+function renderCostRow(name = "", cost = 0) {
+    const rowCount = $("#additionalCostsTable tbody tr").length + 1;
+    const formattedCost = cost.toString();
+
+    const newRow = `
+        <tr>
+            <td class="col-1">${rowCount}</td>
+            <td class="col-5">
+                <input type="text" class="form-control shadow-none" value="${name}" 
+                       data-name="costName"  placeholder="Nombre del costo">
+            </td>
+            <td class="col-3">
+                <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input id="costValues" type="text" class="form-control cost-input" value="${formattedCost}" 
+                           data-name="costValue" data-precision="6" placeholder="0.000000">
+                </div>
+            </td>
+            <td class="col-3">
+                <button type="button" class="btn btn-danger remove-cost-row">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+        </tr>
+        `;
+    $("#additionalCostsTable tbody").append(newRow);
+}
+
+// Sync provider object from UI inputs
+function syncProviderFromUI() {
+    provider.name = $("input[name='provName']").val() || "Proveedor Desconocido";
+    provider.contact = $("input[name='provContact']").val() || "Contacto Desconocido";
+    provider.code = $("input[name='provCode']").val() || "Código Desconocido";
+
+    // Parse provider cost correctly from the input
+    const providerCostInput = $("input[name='providerCost']");
+    provider.cost = parseFloat(providerCostInput.val().replace(/,/g, '')) || 0;
+
+    // Update the summary costs
+    provider.summary = [];
+    $("#additionalCostsTable tbody tr").each(function () {
+        const name = $(this).find("[data-name='costName']").val() || "Sin nombre";
+        const valueInput = $(this).find("[data-name='costValue']");
+        const value = parseFloat(valueInput.val().replace(/,/g, '')) || 0;
+
+        if (value > 0 || name !== "Sin nombre") {
+            provider.summary.push({ name, cost: value });
+        }
+    });
+}
+
+// Update total cost and UI summary
+function updateTotalCost() {
+    let total = parseFloat(provider.cost) || 0;
+
+    // Format provider cost display in summary
+    $("#providerCostSummary").text("$" + (provider.cost ? provider.cost.toFixed(6) : "0.000000"));
+
+    // Clear and rebuild the additional costs summary
+    $("#additionalCostsSummary").empty();
+
+    const hasAdditionalCosts = provider.summary && provider.summary.length > 0;
+
+    if (hasAdditionalCosts) {
+        provider.summary.forEach(item => {
+            total += parseFloat(item.cost) || 0;
+            $("#additionalCostsSummary").append(`
+                    <li class="list-group-item d-flex justify-content-between align-items-center bg-light">
+                        ${item.name}
+                        <span class="badge bg-primary rounded-pill">$${item.cost.toFixed(6)}</span>
+                    </li>
+                `);
+        });
+    } else {
+        $("#additionalCostsSummary").append(`
+                <li class="list-group-item text-center bg-light" id="noCostsMessage">
+                    No hay costos adicionales
+                </li>
+            `);
+    }
+
+    // Update total cost display
+    $("input[name='totalCost']").val(total.toFixed(6));
+    $("#totalCostSummary").text("$" + total.toFixed(6));
+}
 function updateTable() {
     const temp = $("input[name=\'viewItem\']:checked").val();
     const scrollOld = $('.InventoryList tbody').scrollTop();
@@ -34,6 +149,7 @@ function updatePhotosId() {
     });
     return a;
 }
+
 function updateItem() {
     if (!$(document).find('input[name="viewItem"]:checked').val()) {
         return;
@@ -185,9 +301,29 @@ function updateItem() {
                 }
             });
         });
-        if (content == ''){
+        if (content == '') {
             $(document).find('ul.pictures').html('');
         }
+    }
+
+    function LoadProvider(providerData, reference) {
+        provider = {
+            name: undefined,
+            contact: undefined,
+            cost: undefined,
+            code: undefined,
+            summary: []
+        };
+
+        provider = JSON.parse(JSON.stringify(providerData || {}));
+
+        provider.name = provider.name || "";
+        provider.contact = provider.contact || "";
+        provider.code = reference || "";
+        provider.cost = provider.cost || 0;
+        provider.summary = provider.summary || [];
+
+        initializeUI();
     }
 
     function initializeSortable(uuid) {
@@ -267,10 +403,6 @@ function updateItem() {
                 $("input[name='desc']").val(description['desc']);
                 $("input[name='brand']").val(description['brand']);
 
-                $("input[name='providerName']").val(advanced['provider']);
-                $("input[name='providerCode']").val(obj[1]['id_provider']);
-                $("input[name='providerPrice']").val(advanced['provider_price']);
-
                 $("input[name='model']").val(description['model']);
                 $(".excludes button").attr("modal-data-locate", blackList[0] + "=" + $("input[name=\'viewItem\']:checked").val())
                 $("form#saveInfo").attr("post-data", "&uuid=" + obj[1]["uuid"])
@@ -293,11 +425,16 @@ function updateItem() {
             if ($("#nav-recomendation-tab").attr("aria-selected") == "true") {
                 LoadSuggestions(JSON.parse(obj[1]["suggestions"]) ?? []);
             }
+            if ($("#nav-provider-tab").attr("aria-selected") == "true") {
+                LoadProvider(JSON.parse(obj[1]["provider"]) ?? [], obj[1]["id_provider"] ?? "");
+
+            }
 
 
         }
     });
 }
+
 function LoadFilters() {
     if (Object.keys(filters["filter"]).length != 0) {
         var cont = $(document).find('#filterPage' + filters["operation"])
@@ -435,34 +572,34 @@ $(document).ready(function () {
             },
             cancelButtonText: 'Cancelar',
             preConfirm: (inputValue) => {
-            return new Promise((resolve) => {
-                if (!inputValue) {
-                Swal.showValidationMessage('El campo no puede estar vacío');
-                return;
-                }
-                $.ajax({
-                type: "POST",
-                url: "api/code-obtain.php",
-                data: "Storage&Items&VerifyItemSuggest&id=" + inputValue,
-                cache: false,
-                success: function (data) {
-                    const i = JSON.parse(data);
-                    if (!i[0]) {
-                    Swal.showValidationMessage('El campo no puede estar vacío');
-                    return;
+                return new Promise((resolve) => {
+                    if (!inputValue) {
+                        Swal.showValidationMessage('El campo no puede estar vacío');
+                        return;
                     }
-                    resolve(inputValue.toUpperCase());
-                },
-                error: function (xhr, status, error) {
-                    Swal.showValidationMessage('El campo no puede estar vacío');
-                }
+                    $.ajax({
+                        type: "POST",
+                        url: "api/code-obtain.php",
+                        data: "Storage&Items&VerifyItemSuggest&id=" + inputValue,
+                        cache: false,
+                        success: function (data) {
+                            const i = JSON.parse(data);
+                            if (!i[0]) {
+                                Swal.showValidationMessage('El campo no puede estar vacío');
+                                return;
+                            }
+                            resolve(inputValue.toUpperCase());
+                        },
+                        error: function (xhr, status, error) {
+                            Swal.showValidationMessage('El campo no puede estar vacío');
+                        }
+                    });
                 });
-            });
             }
         }).then((result) => {
             if (result.isConfirmed) {
                 const suggestion = result.value;
-        
+
                 $.ajax({
                     type: 'POST',
                     url: 'api/code-edit.php',
@@ -553,6 +690,10 @@ $(document).ready(function () {
             updateItem();
             clearInterval(item);
             item = setInterval(updateItem, updateTime * 1000);
+        }
+        if ($("#nav-provider-tab").attr("aria-selected") == "true") {
+            updateItem();
+            clearInterval(item);
         }
     })
     $(document).on("click", "#saveBlackList", function () {
@@ -1043,4 +1184,103 @@ $(document).ready(function () {
             }
         });
     });
-});
+
+    //Providers
+    $(document).on('click', '#saveProviders', function () {
+        $.ajax({
+            type: 'POST',
+            url: 'api/code-edit.php',
+            data: "Item&Provider&uuid=" + $("input[name=\'viewItem\']:checked").val()+ "&provider=" + JSON.stringify(provider),
+            success: function (response) {
+                const res = JSON.parse(response);
+                if (res[0]) {
+                    Swal.fire({
+                        title: 'Datos Actulizados',
+                        text: 'El proveedor ha sido actualizado exitosamente.',
+                        icon: 'success'
+                    });
+                }
+                updateItem();
+            },
+            error: function () {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Hubo un problema al proveedor el actualizar.',
+                    icon: 'error'
+                });
+            }
+        });
+    });
+
+
+
+    $(document).on("input", "input[name='providerCost']", function () {
+        const value = $(this).val().replace(/[^\d.]/g, '');
+        provider.cost = parseFloat(value) || 0;
+        updateTotalCost();
+    });
+
+    // Other field change handlers
+    $(document).on("input change", "input[name='provName']", function () {
+        provider.name = $(this).val() || "Proveedor Desconocido";
+    });
+
+    $(document).on("input change", "input[name='provContact']", function () {
+        provider.contact = $(this).val() || "Contacto Desconocido";
+    });
+
+    $(document).on("input change", "input[name='provCode']", function () {
+        provider.code = $(this).val().toUpperCase() || "Código Desconocido";
+        $(this).val(provider.code); // Ensure UI reflects uppercase
+    });
+
+    // Add cost row button
+    $(document).on("click", "#addCostRow", function () {
+        renderCostRow();
+        syncProviderFromUI();
+        updateTotalCost();
+    });
+
+    // Remove cost row button
+    $(document).on("click", ".remove-cost-row", function () {
+        $(this).closest("tr").remove();
+
+        // Renumber rows
+        $("#additionalCostsTable tbody tr").each((index, row) => {
+            $(row).find("td:first").text(index + 1);
+        });
+
+        syncProviderFromUI();
+        updateTotalCost();
+    });
+
+    // Cost input changes
+    $(document).on("input change", "[data-name='costName'], [data-name='costValue']", function () {
+        syncProviderFromUI();
+        updateTotalCost();
+    });
+
+    // Form submission
+    $(document).on("submit", "#saveProviderInfo", function (e) {
+        e.preventDefault();
+        syncProviderFromUI();
+        // Here you would save the provider data to the server
+        alert("Datos del proveedor guardados");
+    });
+
+    // Load provider data from database
+    function loadProviderData(providerData) {
+        // Create a deep copy to avoid reference issues
+        provider = JSON.parse(JSON.stringify(providerData || {}));
+
+        // Set defaults if needed
+        provider.name = provider.name || "";
+        provider.contact = provider.contact || "";
+        provider.code = provider.code || "";
+        provider.cost = provider.cost || 0;
+        provider.summary = provider.summary || [];
+
+        initializeUI();
+    }
+
+})

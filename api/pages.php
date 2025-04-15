@@ -56,6 +56,9 @@ if (isset($_GET["Storage"])) {
                         <button class="nav-link" id="nav-image-tab" data-bs-toggle="tab" data-bs-target="#nav-image" type="button" role="tab" aria-controls="nav-image" aria-selected="false">
                             <i class="bi bi bi-images h4 m-0"></i>
                         </button>
+                        <button class="nav-link" id="nav-provider-tab" data-bs-toggle="tab" data-bs-target="#nav-provider" type="button" role="tab" aria-controls="nav-provider" aria-selected="false">
+                            <i class="bi bi-truck h4 m-0"></i>
+                        </button>
                         <button class="nav-link" id="nav-storage-tab" data-bs-toggle="tab" data-bs-target="#nav-storage" type="button" role="tab" aria-controls="nav-storage" aria-selected="false">
                             <i class="bi bi bi-box-seam h4 m-0"></i>
                         </button>
@@ -102,25 +105,6 @@ if (isset($_GET["Storage"])) {
                                     </label>
                                 </div>
                             </div>    
-
-                            <h1 class="modal-title w-100 fs-4 align-text" id="providerTitle" style="color:var(--secondary_text_color)">Proveedor</h1>   
-                            <div class="gy-3 row row-cols-auto w-100 mt-1 mb-3">
-                                <div class="col-3">
-                                    <label for="" class="form-label">Codigo Proveedor</label>
-                                    <input type="text" class="form-control shadow-none" name="providerCode" oninput="this.value = this.value.toUpperCase();">
-                                </div>
-                                <div class="col-6">
-                                    <label for="" class="form-label">Nombre Proveedor</label>
-                                    <input type="text" class="form-control shadow-none" name="providerName">
-                                </div>
-                                <div class="col-3" id="priceProvider">
-                                    <label for="" class="form-label">Precio Proveedor</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text">$</span>
-                                        <input type="text" class="form-control" placeholder="0.00000" name="providerPrice" data-precision="5">
-                                    </div>
-                                </div>
-                            </div>
 
                             <h1 class="modal-title w-100 fs-4 align-text" id="pricesTitle" style="color:var(--secondary_text_color)">Precios</h1>   
                             <div id="prices" class="gy-1 row row-cols-auto w-100 mt-12">
@@ -186,7 +170,125 @@ if (isset($_GET["Storage"])) {
                         </form>
                     </div>
 
+                    <div class="tab-pane fade" id="nav-provider" role="tabpanel" aria-labelledby="nav-provider-tab" tabindex="1">
+                        <div class="row">
+                            <div class="col-md-7">
+                                <form id="saveProviderInfo" autocomplete="off" post-data="">
+                                    <div class="card shadow mb-4">
+                                        <div class="card-header bg-dark text-white">
+                                            <h5 class="card-title mb-0">Información de Proveedor</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="row mb-3">          
+                                                <div class="col-md-4">
+                                                    <label for="" class="form-label">Código Proveedor</label>
+                                                    <input type="text" class="form-control shadow-none" name="provCode" oninput="this.value = this.value.toUpperCase();">
+                                                </div>
+                                                <div class="col-md-8">
+                                                    <label for="" class="form-label">Nombre Proveedor</label>
+                                                    <input type="text" class="form-control shadow-none" name="provName">
+                                                </div>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-md-7">
+                                                    <label for="" class="form-label">Contacto Proveedor</label>
+                                                    <input type="text" class="form-control shadow-none" name="provContact">
+                                                </div>
+                                                <div class="col-md-5">
+                                                    <label for="" class="form-label">Costo del Proveedor</label>
+                                                    <div class="input-group">
+                                                        <span class="input-group-text">$</span>
+                                                        <input type="text" class="form-control" placeholder="0.000000" name="providerCost" data-precision="6">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
 
+                                    <div class="card shadow">
+                                        <div class="card-header bg-dark text-white">
+                                            <h5 class="card-title mb-0">Costos Adicionales</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
+                                                <table class="table table-striped table-bordered" id="additionalCostsTable">
+                                                    <thead class="bg-dark text-white">
+                                                        <tr>
+                                                            <th class="col-1">#</th>
+                                                            <th class="col-5">Nombre</th>
+                                                            <th class="col-3">Valor</th>
+                                                            <th class="col-3">Acción</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                    
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                                <button type="button" class="btn btn-outline-dark" id="addCostRow">
+                                                    <i class="bi bi-plus-lg"></i> Agregar Costo
+                                                </button>
+                                                <div class="d-flex align-items-center">
+                                                    <label class="me-2 fw-bold">Costo Total:</label>
+                                                    <div class="input-group" style="width: 150px;">
+                                                        <span class="input-group-text">$</span>
+                                                        <input type="text" class="form-control" placeholder="0.0000" name="totalCost" data-precision="4" readonly>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <button type="button" id="saveProviders" class="btn btn-dark btn-account-primary shadow-none border-0 mt-3 w-100">Guardar</button>
+                                </form>
+                            </div>
+                            
+                            <!-- Right Column - Cost Summary -->
+                            <div class="col-md-5">
+                                <div class="card shadow h-100">
+                                    <div class="card-header bg-dark text-white">
+                                        <h5 class="card-title mb-0">Resumen de Costos</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="card mb-3 border-0 bg-light">
+                                            <div class="card-body">
+                                                <h5 class="card-title">Costos Principales</h5>
+                                                <ul class="list-group list-group-flush" id="mainCostsSummary">
+                                                    <li class="list-group-item d-flex justify-content-between align-items-center bg-light">
+                                                        Costo del Proveedor
+                                                        <span id="providerCostSummary" class="badge bg-primary rounded-pill">$0.0000</span>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="card mb-3 border-0 bg-light">
+                                            <div class="card-body">
+                                                <h5 class="card-title">Costos Adicionales</h5>
+                                                <div style="max-height: 250px; overflow-y: auto;">
+                                                    <ul class="list-group list-group-flush" id="additionalCostsSummary">
+                                                        <li class="list-group-item text-center bg-light" id="noCostsMessage">
+                                                            No hay costos adicionales
+                                                        </li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="card bg-dark text-white border-0">
+                                            <div class="card-body">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <h5 class="card-title mb-0">Costo Total:</h5>
+                                                    <h5 class="mb-0" id="totalCostSummary">$0.0000</h5>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
                     <div class="tab-pane fade" id="nav-storage" role="tabpanel" aria-labelledby="nav-storage-tab" tabindex="2">
                         <div class="deposits d-flex justify-content-center w-100">
