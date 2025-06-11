@@ -622,6 +622,24 @@ class Core {
             return;
         }
 
+        // Validar que cada item tenga al menos un pack con cantidad
+        let hasEmptyPacks = false;
+        $.each(Session.val.items, function(key, item) {
+            if (!item.packs || Object.keys(item.packs).length === 0) {
+                hasEmptyPacks = true;
+                return false; // break the loop
+            }
+        });
+
+        if (hasEmptyPacks) {
+            Swal.fire({
+                title: "!Error Critico¡",
+                text: "Hay items sin cantidades seleccionadas",
+                icon: "warning"
+            });
+            return;
+        }
+
         const motor = $(document).find('input[name="motorBase"]:checked').val();
         var dataByMotor = ["code-new.php", ""]
         if (motor == 'chrystal') {
@@ -1062,6 +1080,7 @@ $(document).ready(async function () {
             $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1)
         });
     });
+
     $(document).on("keyup", "#qinput", function () {
         var value = $(this).val().toLowerCase();
         $(document).find("table.CartList tbody tr").filter(function () {
@@ -1072,9 +1091,11 @@ $(document).ready(async function () {
             $(this).toggle(rowText.indexOf(value) > -1);
         });
     });
+
     $(document).on("change", 'input[type=radio][name="clientlist"]', function () {
         $("#setClient").removeClass("disabled");
     });
+
     $(document).on("click", "#setClient", function () {
         mode = 0;
         Session.val = { "client": ["", [], ""], "items": {} };
@@ -1091,6 +1112,7 @@ $(document).ready(async function () {
         CoreFunc.updateRowAndFooter()
         CoreFunc.newRow()
     });
+    
     $(document).on('change', '#inputItem', function () {
         const inp = $(this);
         const cont = inp.parent().parent();
@@ -1239,6 +1261,7 @@ $(document).ready(async function () {
         $('.buyBtn').attr('disabled', true);
         $('.buyBtn i').attr('class', "bi bi-send-slash h4");
     });
+
     $(document).on('click', '#deleteRow', function () {
         const cont = $(this).parent().parent();
         if (!cont.find("#selectOrigin option:selected").val()) {
@@ -1257,6 +1280,7 @@ $(document).ready(async function () {
         Session.Save();
         CoreFunc.updateRowAndFooter();
     });
+
     $(document).on('change', "#quantity input", function () {
         var text = $(this).val().replace(/ /g, '');
         const cont = $(this).parent().parent().parent().parent().parent()
@@ -1269,6 +1293,7 @@ $(document).ready(async function () {
         }
         CoreFunc.verifyQuantity(cont.attr("id"), $(this));
     });
+
     $(document).on('change', "#price input", function () {
         const cont = $(this).parent().parent();
         Session.val.items[cont.attr("id")]['price'] = $(this).val();
@@ -1283,6 +1308,7 @@ $(document).ready(async function () {
         Session.Save();
         CoreFunc.updateRowAndFooter();
     });
+
     $(document).on('change', "input#item_discountP", function () {
         const cont = $(this).parent().parent().parent().parent().parent();
         Session.val.items[cont.attr("id")]['discount'][1] = $(this).is(':checked')
@@ -1408,6 +1434,7 @@ $(document).ready(async function () {
             new modalPinesJM().create('FinishBuy&mode=1&uuid=' + new $_SESSION("modePoint").val['uuid'], 2);
         }
     });
+
     $(document).on('click', "#finishBuy", function () {
         const btns = $(this).parent();
         const cont = $(this).parent().parent();

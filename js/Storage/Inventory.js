@@ -1187,6 +1187,7 @@ $(document).ready(function () {
 
     //Providers
     $(document).on('click', '#saveProviders', function () {
+        console.log(provider)
         $.ajax({
             type: 'POST',
             url: 'api/code-edit.php',
@@ -1258,14 +1259,6 @@ $(document).ready(function () {
     $(document).on("input change", "[data-name='costName'], [data-name='costValue']", function () {
         syncProviderFromUI();
         updateTotalCost();
-    });
-
-    // Form submission
-    $(document).on("submit", "#saveProviderInfo", function (e) {
-        e.preventDefault();
-        syncProviderFromUI();
-        // Here you would save the provider data to the server
-        alert("Datos del proveedor guardados");
     });
 
     // Load provider data from database
