@@ -2750,7 +2750,7 @@ if (isset($_POST['Statistics'])) {
                             <option value="3">Paquetes Más Vendidos</option>
                             <option value="4">Inventario</option>
                             <option value="5">Movimiento de Producto</option>
-
+                            <option value="6">Notas</option>
                         </select>
                     </div>
                     <div class="mb-3" id="div_report_year" hidden>
