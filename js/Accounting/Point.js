@@ -1125,9 +1125,10 @@ $(document).ready(async function () {
                     }
 
                     const j = JSON.parse(i[5]) ?? [];
-                    j.unshift("Usar el mismo codigo")
+                    console.log(j)
 
                     if (j.length != 0) {
+                        j.unshift("Usar el mismo codigo")
                         Swal.fire({
                             title: 'Ups este Producto Tiene Otra Alternativas',
                             input: 'select',

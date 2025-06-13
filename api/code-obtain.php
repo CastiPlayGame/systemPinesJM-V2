@@ -807,7 +807,15 @@ if (isset($_POST['Accounting'])) {
                                 $price -= $y["discount"][0];
                             }
                             $Discount += $tempTotal * $price;
+                        } else {
+                            if(!empty($Discount)){
+                                $Discount += $tempTotal * $y['price'];
+                            }
                         }
+
+                        
+
+
                         $Cost += $tempTotal * $y['price'];
                     }
 
