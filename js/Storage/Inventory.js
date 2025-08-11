@@ -834,45 +834,83 @@ $(document).ready(function () {
         updateItem();
     });
     $(document).on('click', '.operations button', function () {
-        const temp = $("input[name=\'viewItem\']:checked").val();
+        const temp = $("input[name='viewItem']:checked").val(); // uuid o id
         const btn = $(this);
-        var dataSend = `Quantity&Pcs&${btn.attr('id')}&item=${temp}&deposit=${$("input[name=\'depositnr\']:checked").val()}&num=${$('#quantity').val()}`;
-        if (btn.parent().attr('data-type') == "pack") {
-            dataSend = `Quantity&Packet&${btn.attr('id')}&item=${temp}&deposit=${$("input[name=\'depositnr\']:checked").val()}&pack=${btn.parent().attr('data-packet-num')}&num=${$('#quantity').val()}`
+        const deposit = $("input[name='depositnr']:checked").val();
+        const quantity = parseInt($('#quantity').val(), 10);
+        let operation_type = '';
+        let packet_id = null;
+        let url = '';
+        let body = {
+            deposit: deposit,
+            quantity: quantity
+        };
+
+        // Determinar tipo de operación y endpoint
+        if (btn.parent().attr('data-type') === "pack") {
+            packet_id = btn.parent().attr('data-packet-num');
+            body.packet_id = parseInt(packet_id, 10);
+            // Determinar operación
+            if (btn.attr('id') === 'add') operation_type = 'add_packs';
+            if (btn.attr('id') === 'sub') operation_type = 'subtract_packs';
+            if (btn.attr('id') === 'set') operation_type = 'establish_packs';
+        } else if (btn.parent().attr('data-type') === "samples") {
+            // Para muestras
+            if (btn.attr('id') === 'add') operation_type = 'add_samples';
+            if (btn.attr('id') === 'sub') operation_type = 'subtract_samples';
+            if (btn.attr('id') === 'set') operation_type = 'establish_samples';
+        } else {
+            // pcs
+            if (btn.attr('id') === 'add') operation_type = 'add_pcs';
+            if (btn.attr('id') === 'sub') operation_type = 'subtract_pcs';
+            if (btn.attr('id') === 'set') operation_type = 'establish_pcs';
         }
-        if (btn.parent().attr('data-type') == "samples") {
-            dataSend = `Quantity&Samples&${btn.attr('id')}&item=${temp}&deposit=${$("input[name=\'depositnr\']:checked").val()}&num=${$('#quantity').val()}`
-        }
+        body.operation_type = operation_type;
+        url = `${urlAPI}item/packets/quantity/${temp}`;
+
+        Swal.fire({
+            html: new sweet_loader().loader("Procesando"),
+            showDenyButton: false,
+            showCancelButton: false,
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false
+        });
+
         $.ajax({
-            beforeSend: function () {
-                Swal.fire({
-                    html: new sweet_loader().loader("Procesando"),
-                    showDenyButton: false,
-                    showCancelButton: false,
-                    allowOutsideClick: false,
-                    allowEscapeKey: false,
-                    showConfirmButton: false
-                });
-            },
-            type: "POST",
-            url: "api/code-edit.php",
-            data: dataSend,
-            cache: false,
-            success: function (data) {
-                var res = JSON.parse(data);
-                if (res[0] == false) {
-                    Swal.fire({
-                        title: "Ups! Algo Salio Mal",
-                        text: res[1],
-                        icon: "error"
-                    });
-                    updateItem();
-                    return;
-                }
+            url: url,
+            type: 'POST',
+            data: JSON.stringify(body),
+            contentType: 'application/json',
+            dataType: 'json',
+            headers: (typeof apiKey !== 'undefined') ? { 'Authorization': `Bearer ${apiKey}` } : {},
+            success: function (data, textStatus, jqXHR) {
                 Swal.fire({
                     title: "Operacion Exitosa",
-                    text: res[1],
+                    text: data.response,
                     icon: "success"
+                });
+                updateItem();
+            },
+            error: function (jqXHR, textStatus, errorThrown) {
+                let msg = "Ups! Algo Salio Mal";
+                let detail = "";
+                if (jqXHR.responseJSON && jqXHR.responseJSON.response) {
+                    detail = jqXHR.responseJSON.response;
+                } else if (jqXHR.responseText) {
+                    try {
+                        const parsed = JSON.parse(jqXHR.responseText);
+                        detail = parsed.response || jqXHR.statusText;
+                    } catch (e) {
+                        detail = jqXHR.statusText;
+                    }
+                } else {
+                    detail = errorThrown;
+                }
+                Swal.fire({
+                    title: msg,
+                    text: detail,
+                    icon: "error"
                 });
                 updateItem();
             }
@@ -933,47 +971,63 @@ $(document).ready(function () {
         });
     });
     $(document).on('click', '#deletePacket', function () {
-        const temp = $("input[name=\'viewItem\']:checked").val();
+        const temp = $("input[name='viewItem']:checked").val();
         const btn = $(this);
+        const deposit = $("input[name='depositnr']:checked").val();
+        const packet_id = btn.attr('item-data');
         Swal.fire({
-            title: "Quieres Eliminar El Paquete de " + btn.attr('item-data'),
+            title: "Quieres Eliminar El Paquete de " + packet_id,
             showCancelButton: true,
             confirmButtonText: "Si",
             cancelButtonText: "No"
-
         }).then((result) => {
             if (result.isConfirmed) {
+                Swal.fire({
+                    html: new sweet_loader().loader("Procesando"),
+                    showDenyButton: false,
+                    showCancelButton: false,
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false
+                });
                 $.ajax({
-                    beforeSend: function () {
-                        Swal.fire({
-                            html: new sweet_loader().loader("Procesando"),
-                            showDenyButton: false,
-                            showCancelButton: false,
-                            allowOutsideClick: false,
-                            allowEscapeKey: false,
-                            showConfirmButton: false
-
-                        });
-                    },
-                    type: "POST",
-                    url: "api/code-edit.php",
-                    data: `Quantity&Packet&del&item=${temp}&deposit=${$("input[name=\'depositnr\']:checked").val()}&pack=${btn.attr('item-data')}`,
-                    cache: false,
+                    url: `${urlAPI}item/packets/quantity/${temp}`,
+                    type: 'POST',
+                    data: JSON.stringify({
+                        operation_type: 'delete_packet',
+                        deposit: deposit,
+                        packet_id: parseInt(packet_id, 10)
+                    }),
+                    contentType: 'application/json',
+                    dataType: 'json',
+                    headers: (typeof apiKey !== 'undefined') ? { 'Authorization': `Bearer ${apiKey}` } : {},
                     success: function (data) {
-                        var res = JSON.parse(data);
-                        if (res[0] == false) {
-                            Swal.fire({
-                                title: "Ups! Algo Salio Mal",
-                                text: res[1],
-                                icon: "error"
-                            });
-                            updateItem();
-                            return;
-                        }
                         Swal.fire({
                             title: "Operacion Exitosa",
-                            text: res[1],
+                            text: data.response,
                             icon: "success"
+                        });
+                        updateItem();
+                    },
+                    error: function (jqXHR, textStatus, errorThrown) {
+                        let msg = "Ups! Algo Salio Mal";
+                        let detail = "";
+                        if (jqXHR.responseJSON && jqXHR.responseJSON.response) {
+                            detail = jqXHR.responseJSON.response;
+                        } else if (jqXHR.responseText) {
+                            try {
+                                const parsed = JSON.parse(jqXHR.responseText);
+                                detail = parsed.response || jqXHR.statusText;
+                            } catch (e) {
+                                detail = jqXHR.statusText;
+                            }
+                        } else {
+                            detail = errorThrown;
+                        }
+                        Swal.fire({
+                            title: msg,
+                            text: detail,
+                            icon: "error"
                         });
                         updateItem();
                     }
@@ -982,45 +1036,62 @@ $(document).ready(function () {
         });
     });
     $(document).on('click', '#createPacket', function () {
-        const temp = $("input[name=\'viewItem\']:checked").val();
-        const btn = $(this);
+        const temp = $("input[name='viewItem']:checked").val();
+        const deposit = $("input[name='depositnr']:checked").val();
+        const packet_id = $('#packet').val();
         Swal.fire({
-            title: "¿Crear Paquete de " + $('#packet').val() + " Pz.?",
+            title: "¿Crear Paquete de " + packet_id + " Pz.?",
             showCancelButton: true,
             confirmButtonText: "Si",
             cancelButtonText: "No"
         }).then((result) => {
             if (result.isConfirmed) {
+                Swal.fire({
+                    html: new sweet_loader().loader("Procesando"),
+                    showDenyButton: false,
+                    showCancelButton: false,
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showConfirmButton: false
+                });
                 $.ajax({
-                    beforeSend: function () {
-                        Swal.fire({
-                            html: new sweet_loader().loader("Procesando"),
-                            showDenyButton: false,
-                            showCancelButton: false,
-                            allowOutsideClick: false,
-                            allowEscapeKey: false,
-                            showConfirmButton: false
-                        });
-                    },
-                    type: "POST",
-                    url: "api/code-edit.php",
-                    data: `Quantity&Packet&new&item=${temp}&deposit=${$("input[name=\'depositnr\']:checked").val()}&pack=${$('#packet').val()}`,
-                    cache: false,
+                    url: `${urlAPI}item/packets/quantity/${temp}`,
+                    type: 'POST',
+                    data: JSON.stringify({
+                        operation_type: 'create_packet',
+                        deposit: deposit,
+                        packet_id: parseInt(packet_id, 10)
+                    }),
+                    contentType: 'application/json',
+                    dataType: 'json',
+                    headers: (typeof apiKey !== 'undefined') ? { 'Authorization': `Bearer ${apiKey}` } : {},
                     success: function (data) {
-                        var res = JSON.parse(data);
-                        if (res[0] == false) {
-                            Swal.fire({
-                                title: "Ups! Algo Salio Mal",
-                                text: res[1],
-                                icon: "error"
-                            });
-                            updateItem();
-                            return;
-                        }
                         Swal.fire({
                             title: "Operacion Exitosa",
-                            text: res[1],
+                            text: data.response,
                             icon: "success"
+                        });
+                        updateItem();
+                    },
+                    error: function (jqXHR, textStatus, errorThrown) {
+                        let msg = "Ups! Algo Salio Mal";
+                        let detail = "";
+                        if (jqXHR.responseJSON && jqXHR.responseJSON.response) {
+                            detail = jqXHR.responseJSON.response;
+                        } else if (jqXHR.responseText) {
+                            try {
+                                const parsed = JSON.parse(jqXHR.responseText);
+                                detail = parsed.response || jqXHR.statusText;
+                            } catch (e) {
+                                detail = jqXHR.statusText;
+                            }
+                        } else {
+                            detail = errorThrown;
+                        }
+                        Swal.fire({
+                            title: msg,
+                            text: detail,
+                            icon: "error"
                         });
                         updateItem();
                     }

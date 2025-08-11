@@ -53,9 +53,9 @@ const updateShort = 15
 const updateSLong = 60
 const DepositosAvaiable = 1
 
-const urlAPI = "http://192.168.0.158/newApi/"
-const urlAPI_AI = "http://192.168.0.158:8080"
-const urlAPI_AI_WS = "ws://192.168.0.158:8080"
+const urlAPI = "http://multipartes.ddnsfree.com:2045/newApi/"
+const urlAPI_AI = "http://multipartes.ddnsfree.com:2044"
+const urlAPI_AI_WS = "ws://multipartes.ddnsfree.com:2044"
 
 const apiKey = "NS20gEo80zV6F3WoxFOR5UKgztqilJ63"
 
@@ -270,7 +270,14 @@ function numberInput(i) {
 }
 
 function formatDate(dateString) {
-    const date = new Date(dateString.replace(" ", "T")); // Parsear la fecha
+    if (!dateString) return "-";
+    // Solo reemplazar el espacio por 'T' si existe un espacio y no ya una 'T'
+    let safeDateString = dateString;
+    if (dateString.indexOf('T') === -1 && dateString.indexOf(' ') !== -1) {
+        safeDateString = dateString.replace(' ', 'T');
+    }
+    const date = new Date(safeDateString);
+    if (isNaN(date.getTime())) return "-";
     const options = { day: '2-digit', month: '2-digit', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true };
     const formattedDate = date.toLocaleString('en-GB', options);
     return formattedDate.replace(',', '');

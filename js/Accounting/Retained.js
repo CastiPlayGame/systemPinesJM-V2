@@ -26,8 +26,8 @@ const processingSound = new Audio('resc/audio/sound_listen.mp3'); // Ajusta la r
 const errorSound = new Audio('resc/audio/sound_error.mp3'); // Ajusta la ruta según tu estructura
 
 const REQUIRED_PEAK_COUNT = 5;
-const SILENCE_THRESHOLD = 32;
-const MIN_SILENCE_THRESHOLD = 24.5;
+const SILENCE_THRESHOLD = 20;
+const MIN_SILENCE_THRESHOLD = 16.5;
 
 const SILENCE_DURATION = 2;
 

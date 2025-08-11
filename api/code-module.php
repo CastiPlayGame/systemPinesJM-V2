@@ -31,6 +31,10 @@ function WithdrawList($conn, $uuid, array $list, $transaction = true)
             $row = mysqli_fetch_assoc($result);
             $quantity = json_decode($row['quantity'], true);
 
+            if (!isset($quantity[$item['depo']])) {
+                $quantity[$item['depo']] = ["Packets" => [], "Pcs" => 0];
+            }
+
             $resultConsult["playload"]["old"][] = [
                 "code" => $item['code'],
                 "depo" => $item['depo'],
@@ -38,7 +42,10 @@ function WithdrawList($conn, $uuid, array $list, $transaction = true)
             ];
 
             foreach ($item['packs'] as $pack => $packnum) {
-                if ($quantity[$item['depo']]['Packets'][$pack] > 0) {
+                if (!array_key_exists($pack, $quantity[$item['depo']]['Packets'])) {
+                    $quantity[$item['depo']]['Packets'][$pack] = 0;
+                }
+                if ($quantity[$item['depo']]['Packets'][$pack] >= $packnum) {
                     $quantity[$item['depo']]['Packets'][$pack] = $quantity[$item['depo']]['Packets'][$pack] - $packnum;
                     $resultConsult["playload"]["total"] += ($pack * $packnum);
                 } else {
@@ -105,6 +112,10 @@ function RestoreList($conn, $uuid, array $buy, $transaction = true)
             $rowitem = mysqli_fetch_assoc($result);
             $quantity = json_decode($rowitem['quantity'], true);
 
+            if (!isset($quantity[$item['depo']])) {
+                $quantity[$item['depo']] = ["Packets" => [], "Pcs" => 0];
+            }
+
             $resultConsult["playload"]["old"][] = [
                 "code" => $item['code'],
                 "depo" => $item['depo'],
@@ -112,6 +123,9 @@ function RestoreList($conn, $uuid, array $buy, $transaction = true)
             ];
 
             foreach ($item['packs'] as $pack => $packnum) {
+                if (!array_key_exists($pack, $quantity[$item['depo']]['Packets'])) {
+                    $quantity[$item['depo']]['Packets'][$pack] = 0;
+                }
                 $quantity[$item['depo']]['Packets'][$pack] = $quantity[$item['depo']]['Packets'][$pack] + $packnum;
                 $resultConsult["playload"]["total"] += ($pack * $packnum);
             }
@@ -245,6 +259,9 @@ function ShippingList($conn, array $listShip)
                 if (!array_key_exists($pack, $quantity[$arr['depoTo']]['Packets'])) {
                     $quantity[$arr['depoTo']]['Packets'][$pack] = 0;
                 }
+                if (!array_key_exists($pack, $quantity[$arr['depo']]['Packets'])) {
+                    $quantity[$arr['depo']]['Packets'][$pack] = 0;
+                }
 
                 $quantity[$arr['depoTo']]['Packets'][$pack] += $packnum;
                 $quantity[$arr['depo']]['Packets'][$pack] -= $packnum;
@@ -301,11 +318,10 @@ function MergedArray($a, $b)
 {
     $merged = array();
 
-    // loop through each key in the first array
+    // loop through each key in $b and add with $a when present
     foreach ($b as $k => $v) {
-        // if the key exists in the second array, add the values
-        if (array_key_exists($k, $b)) {
-            $merged[$k] = $v + $a[$k];
+        if (array_key_exists($k, $a)) {
+            $merged[$k] = (int)$v + (int)$a[$k];
         } else {
             $merged[$k] = $v;
         }

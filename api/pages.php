@@ -445,6 +445,47 @@ if (isset($_GET["Storage"])) {
             </div>
         </div>
         ';
+    } elseif (isset($_GET['Pool'])) {
+        echo '
+        <div class="d-flex flex-column w-100 h-100">
+            <div class="pb-3 m-0 w-100">
+                <div class="row row-cols-sm-2 row-cols-md-auto">        
+                    <div class="col col-12 col-lg-8">
+                        <h1 class="display-6 titleCategory ps-1" style="color:var(--secondary_text_color)">Cola de Productos</h1>      
+                    </div>
+                    <div class="col col-12 col-lg-4 d-flex align-items-center">
+                        <div class="input-group rounded">
+                            <input type="text" class="form-control rounded shadow-none" id="qinput" placeholder="Buscar" aria-label="Buscar" aria-describedby="search-addon" />
+                            <span class="input-group-text border-0" id="search-addon">
+                                <button type="button" class="btn shadow-none border-0 w-100">
+                                    <i class="bi bi-search" style="color:var(--secondary_text_color)"></i>
+                                </button>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <h1 id="countdownPoolBatch" class="fw-bold" style="font-size:1.3rem;"></h1>
+            <div class="table-responsive rounded-top overflow-hidden flex-grow-1 w-100">
+                <table id="Pool" class="table table-striped table-scroll small">
+                    <thead>
+                        <tr>
+                            <th scope="col">Id</th>
+                            <th scope="col">Prioridad</th>
+                            <th scope="col">Producto</th>
+                            <th scope="col">Aporte</th>
+                            <th scope="col">Creado</th>
+                            <th scope="col">Completado</th>
+                            <th scope="col">Estado</th>
+                            <th scope="col"></th>
+                        </tr>
+                    </thead>
+                    <tbody class="table-group-divider" style="max-height: 70vh;font-size: 1rem;">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        ';
     }
 }
 

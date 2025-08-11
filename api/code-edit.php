@@ -186,7 +186,6 @@ if (isset($_POST['Item'])) {
 
         $hide = (isset($_POST['itemhide'])) ? true : false;
         $uuid = $_POST['uuid'];
-        $providerCode = $_POST["providerCode"];
 
 
         $info = json_encode(array(
@@ -199,9 +198,7 @@ if (isset($_POST['Item'])) {
         $prices = array();
         $_itemAdvanced = json_encode(array(
             "hide" => $hide,
-            "views" => json_decode($_POST['blacklist'], true),
-            "provider" => $_POST["providerName"],
-            "provider_price" => floatval($_POST["providerPrice"])
+            "views" => json_decode($_POST['blacklist'], true)
         ));
 
         for ($i = 1; $i <= $price; $i++) {
@@ -223,9 +220,9 @@ if (isset($_POST['Item'])) {
         }
 
 
-        $sql = "UPDATE `items` SET `info`=?,`advanced`=AES_ENCRYPT(?,'" . CLAVE_AES . "'),`prices`=AES_ENCRYPT(?,'" . CLAVE_AES . "'),`id_provider`=?  WHERE uuid=?";
+        $sql = "UPDATE `items` SET `info`=?,`advanced`=AES_ENCRYPT(?,'" . CLAVE_AES . "'),`prices`=AES_ENCRYPT(?,'" . CLAVE_AES . "') WHERE uuid=?";
         $stmt = mysqli_prepare($conn, $sql);
-        mysqli_stmt_bind_param($stmt, "sssss", $info, $_itemAdvanced, $_itemPrices, $providerCode, $uuid);
+        mysqli_stmt_bind_param($stmt, "ssss", $info, $_itemAdvanced, $_itemPrices, $uuid);
         if (!mysqli_stmt_execute($stmt)) {
             die(json_encode(array(false, 'Error: ' . mysqli_stmt_error($stmt))));
         }

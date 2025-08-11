@@ -232,6 +232,12 @@ if (isset($_GET['api_key'])) {
                         </li>
                         -->
                         <li class="sidebar-item">
+                            <a name="History" href="?Storage&Pool" class="sidebar-link">
+                                <i class="bi bi-hourglass-bottom"></i>
+                                Cola de Productos
+                            </a>
+                        </li>
+                        <li class="sidebar-item">
                             <a name="History" href="?Storage&History" class="sidebar-link">
                                 <i class="bi bi-card-text"></i>
                                 Historial
