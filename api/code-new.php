@@ -278,6 +278,122 @@ if (isset($_POST['User'])) {
     die(json_encode(array(true)));
 }
 
+if (isset($_POST['Provider'])) {
+    $connObject = new Connection();
+    $conn = $connObject->Connect();
+
+    $name = $_POST['name'];
+    $platform = $_POST['platform'];
+    $platformOther = $_POST['platform_other'];
+    $email = $_POST['email'];
+    $contact = $_POST['contact'];
+
+    // If platform is "other", use platform_other value
+    if ($platform === "other") {
+        $platform = $platformOther;
+    }
+
+    // Check if provider already exists
+    $sql = "SELECT id FROM `providers` WHERE name = ? OR email = ?";
+    $stmt = mysqli_prepare($conn, $sql);
+    mysqli_stmt_bind_param($stmt, "ss", $name, $email);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    if (mysqli_num_rows($result) > 0) {
+        die(json_encode(array(false, 'El proveedor ya existe con ese nombre o email')));
+    }
+
+    $sql = "INSERT INTO `providers` (`name`, `plaftorm`, `platorm_other`, `email`, `contact`) VALUES (?, ?, ?, ?, ?)";
+    $stmt = mysqli_prepare($conn, $sql);
+    mysqli_stmt_bind_param($stmt, "sssss", $name, $platform, $platformOther, $email, $contact);
+    
+    if (!mysqli_stmt_execute($stmt)) {
+        die(json_encode(array(false, 'Error: ' . mysqli_stmt_error($stmt))));
+    }
+    die(json_encode(array(true)));
+}
+
+if (isset($_POST['ProviderCode'])) {
+    $connObject = new Connection();
+    $conn = $connObject->Connect();
+
+    $itemId = $_POST['itemId'];
+    $providerId = $_POST['providerId'];
+    $providerCode = $_POST['providerCode'];
+    $costPayload = isset($_POST['cost']) ? $_POST['cost'] : null;
+    $notes = $_POST['notes'] ?: null;
+
+    // Verify that the item exists in the items table
+    $sql = "SELECT id FROM `items` WHERE id = ?";
+    $stmt = mysqli_prepare($conn, $sql);
+    mysqli_stmt_bind_param($stmt, "s", $itemId);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    if (mysqli_num_rows($result) == 0) {
+        die(json_encode(array(false, 'El item especificado no existe en la base de datos')));
+    }
+
+    // Verify that the provider exists
+    $sql = "SELECT id FROM `providers` WHERE id = ?";
+    $stmt = mysqli_prepare($conn, $sql);
+    mysqli_stmt_bind_param($stmt, "s", $providerId);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    if (mysqli_num_rows($result) == 0) {
+        die(json_encode(array(false, 'El proveedor especificado no existe')));
+    }
+
+    // Check if this provider code already exists for this item
+    $sql = "SELECT id FROM `provider_codes` WHERE provider_id = ? AND item_id = ?";
+    $stmt = mysqli_prepare($conn, $sql);
+    mysqli_stmt_bind_param($stmt, "ss", $providerId, $itemId);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    if (mysqli_num_rows($result) > 0) {
+        die(json_encode(array(false, 'Ya existe un código de proveedor para este item')));
+    }
+
+    // Validate and normalize cost JSON
+    $costsJson = null;
+    if (!empty($costPayload)) {
+        // Accept either JSON string or single numeric; normalize to {initial: number, additionals: []}
+        $decoded = json_decode($costPayload, true);
+        if (json_last_error() === JSON_ERROR_NONE) {
+            $initial = isset($decoded['initial']) ? $decoded['initial'] : null;
+            $additionals = isset($decoded['additionals']) && is_array($decoded['additionals']) ? $decoded['additionals'] : [];
+            $normalized = [
+                'initial' => $initial,
+                'additionals' => $additionals
+            ];
+            $costsJson = json_encode($normalized);
+        } else {
+            // If not JSON, try to treat as scalar number string
+            $normalized = [
+                'initial' => $costPayload,
+                'additionals' => []
+            ];
+            $costsJson = json_encode($normalized);
+        }
+    } else {
+        $costsJson = json_encode(['initial' => null, 'additionals' => []]);
+    }
+
+    // Insert the new provider code (store costs JSON in `costs` column)
+    $sql = "INSERT INTO `provider_codes` (`provider_id`, `item_id`, `provider_code`, `costs`, `notes`, `created_at`) VALUES (?, ?, ?, ?, ?, NOW())";
+    $stmt = mysqli_prepare($conn, $sql);
+    mysqli_stmt_bind_param($stmt, "sssss", $providerId, $itemId, $providerCode, $costsJson, $notes);
+    
+    if (!mysqli_stmt_execute($stmt)) {
+        die(json_encode(array(false, 'Error al insertar: ' . mysqli_stmt_error($stmt))));
+    }
+    
+    die(json_encode(array(true, 'Código de proveedor agregado exitosamente')));
+}
+
 if (isset($_POST['Departament'])) {
     $connObject = new Connection();
     $conn = $connObject->Connect();
@@ -302,3 +418,38 @@ if (isset($_POST['Departament'])) {
     }
     die(json_encode(array(true)));
 }
+
+if (isset($_POST['ProviderPurchase'])) {
+    $connObject = new Connection();
+    $conn = $connObject->Connect();
+
+    $providerId = $_POST['providerId'];
+    $content = $_POST['content'];
+    $summary = $_POST['summary'];
+    $uuid = UUIDv4();
+
+    // Verify that the provider exists
+    $sql = "SELECT id FROM `providers` WHERE id = ?";
+    $stmt = mysqli_prepare($conn, $sql);
+    mysqli_stmt_bind_param($stmt, "s", $providerId);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+
+    if (mysqli_num_rows($result) == 0) {
+        die(json_encode(array(false, 'El proveedor especificado no existe')));
+    }
+
+    // Insert the new provider purchase
+    $sql = "INSERT INTO `provider_purchases` (`uuid`, `provider_id`, `content`, `summary`, `status`, `created_at`, `updated_at`) 
+            VALUES (?, ?, ?, ?, 'pending', NOW(), NOW())";
+    $stmt = mysqli_prepare($conn, $sql);
+    mysqli_stmt_bind_param($stmt, "ssss", $uuid, $providerId, $content, $summary);
+    
+    if (!mysqli_stmt_execute($stmt)) {
+        die(json_encode(array(false, 'Error al insertar: ' . mysqli_stmt_error($stmt))));
+    }
+    
+    $insertId = mysqli_insert_id($conn);
+    die(json_encode(array(true, 'Compra de proveedor registrada exitosamente', $insertId, $uuid)));
+}
+

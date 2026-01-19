@@ -8,12 +8,109 @@ if (isset($_POST['Inventory'])) {
             case 'EditPacket':
                 $connObject = new Connection();
                 $conn = $connObject->Connect();
-                $sql = "SELECT JSON_VALUE(quantity, '$.\"" . $_POST['depo'] . "\".Packets.\"" . $_POST['pack'] . "\"') as Pack FROM `items` WHERE id='" . $_POST['id'] . "'";
+                $productCode = $_POST['id'];
+                $sql = "SELECT JSON_VALUE(quantity, '$.\"" . $_POST['depo'] . "\".Packets.\"" . $_POST['pack'] . "\"') as Pack FROM `items` WHERE id='" . $productCode . "'";
 
                 $result = mysqli_query($conn, $sql);
 
                 if (mysqli_num_rows($result) > 0) {
                     $row = mysqli_fetch_assoc($result);
+                    
+                    // Buscar compras con status 'received' que contengan el producto y no estén cerradas
+                    $sqlPurchases = "SELECT pp.id, pp.uuid, pp.content, pp.summary, p.name as provider_name 
+                                     FROM provider_purchases pp
+                                     LEFT JOIN providers p ON p.id = pp.provider_id
+                                     WHERE pp.status = 'received'";
+                    $resultPurchases = mysqli_query($conn, $sqlPurchases);
+                    
+                    $purchaseOptionsData = array();
+                    while ($purchase = mysqli_fetch_assoc($resultPurchases)) {
+                        $content = json_decode($purchase['content'], true);
+                        $summary = json_decode($purchase['summary'], true);
+                        
+                        $orderedQty = 0;
+                        $shippedQty = 0;
+                        $isClosed = false;
+                        
+                        // Buscar en content para obtener quantity ordenada
+                        if (is_array($content)) {
+                            foreach ($content as $item) {
+                                if (isset($item['code']) && $item['code'] === $productCode) {
+                                    $orderedQty = intval($item['quantity'] ?? 0);
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // Buscar en summary para shipped_amount y is_closed
+                        if (is_array($summary)) {
+                            foreach ($summary as $sumItem) {
+                                if (isset($sumItem['code']) && $sumItem['code'] === $productCode) {
+                                    $shippedQty = intval($sumItem['shipped_amount'] ?? 0);
+                                    $isClosed = isset($sumItem['is_closed']) ? (bool)$sumItem['is_closed'] : false;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // Solo agregar si el producto no está cerrado y está en el content
+                        if (!$isClosed && $orderedQty > 0) {
+                            $purchaseOptionsData[] = array(
+                                'uuid' => $purchase['uuid'],
+                                'provider_name' => $purchase['provider_name'],
+                                'id' => $purchase['id'],
+                                'ordered' => $orderedQty,
+                                'shipped' => $shippedQty
+                            );
+                        }
+                    }
+                    
+                    $hasPurchases = count($purchaseOptionsData) > 0;
+                    $purchaseSelectHtml = '';
+                    
+                    if ($hasPurchases) {
+                        $purchaseOptions = '<option value="" selected data-ordered="0" data-shipped="0">Seleccione una compra</option>';
+                        foreach ($purchaseOptionsData as $p) {
+                            $purchaseOptions .= '<option value="' . $p['uuid'] . '" data-ordered="' . $p['ordered'] . '" data-shipped="' . $p['shipped'] . '">' 
+                                . htmlspecialchars($p['provider_name']) 
+                                . ' - Compra #' . $p['id'] 
+                                . ' (Ordenado: ' . $p['ordered'] . ', Recibido: ' . $p['shipped'] . ')'
+                                . '</option>';
+                        }
+                        
+                        $purchaseSelectHtml = '
+                        <div class="mb-3">
+                            <label for="purchaseSelect" class="form-label">Compra de Proveedor</label>
+                            <select class="form-select shadow-none" id="purchaseSelect">
+                                ' . $purchaseOptions . '
+                            </select>
+                        </div>
+                        <div class="mb-3" id="purchaseInfo" style="display:none;">
+                            <div class="alert alert-info mb-2">
+                                <small><strong>Ordenado:</strong> <span id="orderedQty">0</span></small><br>
+                                <small><strong>Recibido:</strong> <span id="shippedQty">0</span></small>
+                            </div>
+                            <label for="purchaseQuantity" class="form-label">Paquetes a agregar a la compra</label>
+                            <input type="text" class="form-control shadow-none" id="purchaseQuantity" oninput="numberInput(this)" autocomplete="off">
+                        </div>
+                        <script>
+                            $(document).ready(function() {
+                                $("#purchaseSelect").on("change", function() {
+                                    const selected = $(this).find("option:selected");
+                                    const ordered = selected.data("ordered") || 0;
+                                    const shipped = selected.data("shipped") || 0;
+                                    
+                                    if (selected.val()) {
+                                        $("#purchaseInfo").show();
+                                        $("#orderedQty").text(ordered);
+                                        $("#shippedQty").text(shipped);
+                                    } else {
+                                        $("#purchaseInfo").hide();
+                                    }
+                                });
+                            });
+                        </script>';
+                    }
 
                     echo '
                     <div class="modal-header">
@@ -22,6 +119,7 @@ if (isset($_POST['Inventory'])) {
                     </div>
                     <div class="modal-body">
                         <h6>Hay (' . $row['Pack'] . ') Paquetes</h6>
+                        ' . $purchaseSelectHtml . '
                         <div class="mb-3">
                             <label for="quantity" class="form-label">Cantidad</label>
                             <input type="text" class="form-control shadow-none" id="quantity" oninput="numberInput(this)" autocomplete="off">
@@ -862,6 +960,256 @@ if (isset($_POST['DataBase'])) {
                 }
                 break;
         }
+    } elseif (isset($_POST['Providers'])) {
+        switch ($_POST['Mode']) {
+            case 'New':
+                echo '
+                <script>
+                    $(document).ready(function () {
+                        // Handle platform selection change
+                        $("#platform").change(function() {
+                            if ($(this).val() === "other") {
+                                $("#platformOtherContainer").show();
+                                $("#platformOther").prop("required", true);
+                            } else {
+                                $("#platformOtherContainer").hide();
+                                $("#platformOther").prop("required", false);
+                                $("#platformOther").val("");
+                            }
+                        });
+                    });
+                </script>
+
+                <form id="newProvider" autocomplete="off">
+                    <div class="modal-header">
+                        <h1 class="modal-title fs-4 align-text" id="title" style="color:var(--secondary_text_color)">Nuevo Proveedor</h1>   
+                        <button type="button" class="btn-close me-1" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="gy-3 row row-cols-sm-1 row-cols-lg-auto w-100 mt-2">          
+                            <div class="col-12">
+                                <label for="" class="form-label">Nombre del Proveedor</label>
+                                <input type="text" class="form-control shadow-none" name="name" required>
+                            </div>
+                            <div class="col-6">
+                                <label for="" class="form-label">Plataforma</label>
+                                <select class="form-select shadow-none" name="platform" id="platform" required>
+                                    <option value="">Seleccionar plataforma</option>
+                                    <option value="1688">1688</option>
+                                    <option value="Aliexpress">Aliexpress</option>
+                                    <option value="Alibaba">Alibaba</option>
+                                    <option value="other">Otra</option>
+                                </select>
+                            </div>
+                            <div class="col-6" id="platformOtherContainer" style="display: none;">
+                                <label for="" class="form-label">Otra Plataforma</label>
+                                <input type="text" class="form-control shadow-none" name="platform_other" id="platformOther" placeholder="Especificar plataforma">
+                            </div>
+                            <div class="col-6">
+                                <label for="" class="form-label">Email</label>
+                                <input type="email" class="form-control shadow-none" name="email" required>
+                            </div>
+                            <div class="col-6">
+                                <label for="" class="form-label">Contacto</label>
+                                <input type="text" class="form-control shadow-none" name="contact" required>
+                            </div>
+                        </div> 
+                    </div>
+                    <div class="modal-footer">
+                        <div class="d-flex align-items-center">
+                            <button type="submit" class="btn btn-dark btn-account-primary shadow-none border-0 w-100">Crear</button>
+                        </div>
+                    </div>
+                </form>';
+                break;
+            case 'Edit':
+                $connObject = new Connection();
+                $conn = $connObject->Connect();
+
+                $sql = "SELECT * FROM `providers` WHERE id='" . $_POST['id'] . "'";
+                $provider = mysqli_query($conn, $sql);
+                if (mysqli_num_rows($provider) <= 0) {
+                    die("
+                    <script>
+                        $(document).ready(function () {
+                            new modalPinesJM().close()
+                        });
+                    </script>");
+                }
+                $providerRow = mysqli_fetch_assoc($provider);
+
+                echo '
+                <script>
+                    $(document).ready(function () {
+                        // Handle platform selection change
+                        $("#platform").change(function() {
+                            if ($(this).val() === "other") {
+                                $("#platformOtherContainer").show();
+                                $("#platformOther").prop("required", true);
+                            } else {
+                                $("#platformOtherContainer").hide();
+                                $("#platformOther").prop("required", false);
+                                $("#platformOther").val("");
+                            }
+                        });
+                        
+                        // Set initial state
+                        if ("' . $providerRow['plaftorm'] . '" === "other") {
+                            $("#platformOtherContainer").show();
+                            $("#platformOther").prop("required", true);
+                        }
+                    });
+                </script>
+
+                <form id="editProvider" autocomplete="off" data-params-post="id=' . $_POST['id'] . '">
+                    <div class="modal-header">
+                        <h1 class="modal-title fs-4 align-text" id="title" style="color:var(--secondary_text_color)">Editar Proveedor [' . $providerRow['name'] . ']</h1>   
+                        <button type="button" class="btn-close me-1" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="gy-3 row row-cols-sm-1 row-cols-lg-auto w-100 mt-2">          
+                            <div class="col-12">
+                                <label for="" class="form-label">Nombre del Proveedor</label>
+                                <input type="text" class="form-control shadow-none" name="name" value="' . $providerRow['name'] . '" required>
+                            </div>
+                            <div class="col-6">
+                                <label for="" class="form-label">Plataforma</label>
+                                <select class="form-select shadow-none" name="platform" id="platform" required>
+                                    <option value="">Seleccionar plataforma</option>
+                                    <option value="1688"' . ($providerRow['plaftorm'] == '1688' ? ' selected' : '') . '>1688</option>
+                                    <option value="Aliexpress"' . ($providerRow['plaftorm'] == 'Aliexpress' ? ' selected' : '') . '>Aliexpress</option>
+                                    <option value="Alibaba"' . ($providerRow['plaftorm'] == 'Alibaba' ? ' selected' : '') . '>Alibaba</option>
+                                    <option value="other"' . ($providerRow['plaftorm'] == 'other' ? ' selected' : '') . '>Otra</option>
+                                </select>
+                            </div>
+                            <div class="col-6" id="platformOtherContainer" style="display: none;">
+                                <label for="" class="form-label">Otra Plataforma</label>
+                                <input type="text" class="form-control shadow-none" name="platform_other" id="platformOther" placeholder="Especificar plataforma" value="' . $providerRow['platorm_other'] . '">
+                            </div>
+                            <div class="col-6">
+                                <label for="" class="form-label">Email</label>
+                                <input type="email" class="form-control shadow-none" name="email" value="' . $providerRow['email'] . '" required>
+                            </div>
+                            <div class="col-6">
+                                <label for="" class="form-label">Contacto</label>
+                                <input type="text" class="form-control shadow-none" name="contact" value="' . $providerRow['contact'] . '" required>
+                            </div>
+                        </div> 
+                    </div>
+                    <div class="modal-footer">
+                        <div class="d-flex align-items-center justify-content-between w-100">
+                            <button type="button" class="btn btn-outline-dark" modal-data-locate="DataBase&Providers&Mode=AddCodes&id=' . $_POST['id'] . '" modal-size="2" id="modalBtn">
+                                <i class="bi bi-upc-scan"></i> Gestionar Códigos
+                            </button>
+                            <button type="submit" class="btn btn-dark btn-account-primary shadow-none border-0">Guardar Cambios</button>
+                        </div>
+                    </div>
+                </form>';
+                break;
+            case 'AddCodes':
+                $connObject = new Connection();
+                $conn = $connObject->Connect();
+
+                $sql = "SELECT * FROM `providers` WHERE id='" . $_POST['id'] . "'";
+                $provider = mysqli_query($conn, $sql);
+                if (mysqli_num_rows($provider) <= 0) {
+                    die("
+                    <script>
+                        $(document).ready(function () {
+                            new modalPinesJM().close()
+                        });
+                    </script>");
+                }
+                $providerRow = mysqli_fetch_assoc($provider);
+
+                echo '
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title" id="providerCodeModalLabel"><i class="bi bi-upc-scan"></i> Códigos de Proveedor - ' . $providerRow['name'] . '</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body bg-light">
+                    <div class="row">
+                        <div class="col-lg-5 col-md-12">
+                            <div class="card shadow-sm border-0">
+                                <div class="card-header bg-light text-dark d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0" id="formModeTitle">Agregar Nuevo Código</h6>
+                                    <span class="badge bg-light text-muted border" id="providerIdBadge" data-provider-id="' . $_POST['id'] . '">Proveedor #' . $_POST['id'] . '</span>
+                                </div>
+                                <div class="card-body">
+                                    <form id="addProviderCode" autocomplete="off" data-provider-id="' . $_POST['id'] . '">
+                                        <input type="hidden" id="codeId" value="">
+                                        <div class="mb-3 position-relative">
+                                            <label for="itemSearch" class="form-label small text-muted">Buscar Item</label>
+                                            <input type="text" class="form-control form-control-lg shadow-sm border-0" id="itemSearch" placeholder="ID o nombre del item..." autocomplete="off" oninput="this.value = this.value.toUpperCase();">
+                                            <div id="searchResults" class="list-group position-absolute w-100 shadow-lg d-none" style="z-index: 1000;"></div>
+                                        </div>
+                                        <input type="hidden" id="itemId" name="itemId">
+                                        <div class="mb-3">
+                                            <label for="itemName" class="form-label small text-muted">Item Seleccionado</label>
+                                            <input type="text" class="form-control form-control-lg shadow-sm border-0" id="itemName" readonly placeholder="-- Seleccione un item --">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="providerCode" class="form-label small text-muted">Código del Proveedor</label>
+                                            <input type="text" class="form-control form-control-lg shadow-sm border-0" id="providerCode" name="providerCode" required placeholder="E.g., ABC-123" oninput="this.value = this.value.toUpperCase();">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label small text-muted">Costos</label>
+                                            <div class="input-group input-group-lg mb-2">
+                                                <span class="input-group-text bg-white border-1">Inicial</span>
+                                                <input type="text" inputmode="decimal" class="form-control form-control-lg shadow-sm border-0" id="costInitial" placeholder="0.00" oninput="numberInput(this, true);">
+                                            </div>
+                                            <div class="small text-muted mt-1">Total costos: <strong id="formCostTotal">0.00</strong></div>
+                                            <div id="additionalCosts" class="mt-2"></div>
+                                            <div class="d-grid">
+                                                <button type="button" class="btn btn-outline-secondary btn-sm mt-2" id="addCostRow">
+                                                    <i class="bi bi-plus-circle me-1"></i> Agregar costo adicional
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="notes" class="form-label small text-muted">Notas (opcional)</label>
+                                            <textarea class="form-control form-control-lg shadow-sm border-0" id="notes" name="notes" rows="3" placeholder="Notas adicionales..."></textarea>
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <button type="submit" class="btn btn-secondary mt-3 flex-grow-1" id="submitProviderCode"><i class="bi bi-save me-1"></i> Guardar</button>
+                                            <button type="button" class="btn btn-outline-secondary mt-3 d-none" id="cancelEditCode"><i class="bi bi-arrow-counterclockwise me-1"></i> Cancelar edición</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-7 col-md-12">
+                            <div class="card shadow-sm border-0">
+                                <div class="card-header text-dark">
+                                    <h6 class="mb-0">Códigos Registrados</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive" style="max-height: 450px; overflow-y: auto;">
+                                        <table class="table table-hover table-sm align-middle" id="providerCodesTable">
+                                            <thead class="table-dark">
+                                                <tr>
+                                                    <th>Código</th>
+                                                    <th>Referencia</th>
+                                                    <th>Costos</th>
+                                                    <th class="text-center">Acciones</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <!-- Códigos se cargarán dinámicamente -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <small class="text-muted mt-2 d-block">Sugerencia: use los botones de acción para editar o eliminar un código.</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-top-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-circle me-1"></i> Cerrar</button>
+                </div>';
+                break;
+        }
     } elseif (isset($_POST['Departaments'])) {
         switch ($_POST['Mode']) {
             case 'New':
@@ -1060,7 +1408,6 @@ if (isset($_POST['DataBase'])) {
                 $deparow = mysqli_fetch_assoc($depa);
                 $advanced = json_decode($deparow['advanced'], true);
                 $hide = ($advanced['hide'] == true) ? "true" : "false";
-
 
 
 
@@ -2729,6 +3076,328 @@ if (isset($_POST['Reatined'])) {
     }
 }
 
+if (isset($_POST['Purchases'])) {
+    if (isset($_POST['Create'])) {
+        switch ($_POST['Mode']) {
+            case 'ShowProviders':
+                $connObject = new Connection();
+                $conn = $connObject->Connect();
+
+                $sql = "SELECT p.id, 
+                        p.name, 
+                        p.plaftorm, 
+                        p.platorm_other,
+                        COUNT(pc.id) as total_items
+                        FROM `providers` p
+                        LEFT JOIN `provider_codes` pc ON p.id = pc.provider_id
+                        GROUP BY p.id, p.name, p.plaftorm, p.platorm_other
+                        ORDER BY p.name ASC";
+
+                $result = mysqli_query($conn, $sql);
+                if (mysqli_num_rows($result) > 0) {
+                    echo '
+                    <script>
+                        $(document).ready(function() {
+                        });
+                    </script>
+                    
+                    <div class="modal-header">
+                        <h5 class="modal-title">Buscar Proveedor</h5>
+                    </div>
+                    <div class="modal-body">
+                        <div class="input-group mb-3">
+                            <input type="text" class="form-control shadow-none" placeholder="Buscar" aria-label="Buscar" autofocus oninput="this.value = this.value.toUpperCase();" aria-describedby="button-addon2" id="qinputProvider">
+                            <button class="btn btn-outline-dark" type="button" id="qsearch">Buscar</button>
+                        </div>
+                        <table class="ProviderList table table-striped table-bordered table-scroll">
+                            <thead>
+                                <tr>
+                                    <th class="col-4 text-light" scope="col">Nombre</th>
+                                    <th class="col-3 text-light" scope="col">Plataforma</th>
+                                    <th class="col-2 text-light" scope="col">Items</th>
+                                    <th class="col-1 text-light" scope="col"></th>
+                                </tr>
+                            </thead>
+                            <div>
+                            <tbody class="table-group-divider" style="max-height: 26rem;">';
+                            while ($row = mysqli_fetch_assoc($result)) {
+                                $platform = $row['plaftorm'] == 'other' ? $row['platorm_other'] : $row['plaftorm'];
+                                echo '
+                                    <tr id="provider_' . $row['id'] . '">
+                                        <td class="col-4">
+                                            <span class="d-inline-block text-truncate" style="max-width: 100%;">
+                                                ' . $row['name'] . '
+                                            </span>
+                                        </td>
+                                        <td class="col-3">' . ($platform ? $platform : '-') . '</td>
+                                        <td class="col-2">' . $row['total_items'] . '</td>
+                                        <td class="col-1">
+                                            <input class="form-check-input" value="' . $row['id'] . '" data-name="' . $row['name'] . '" type="radio" name="providerlist">
+                                        </td>
+                                    </tr>
+                                    ';
+                            }
+                    echo '    
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-dark disabled" data-bs-dismiss="modal" id="setProvider">
+                            Agregar
+                        </button>
+                    </div>';
+                } else {
+                    echo "
+                    <script>
+                        $(document).ready(function () {
+                            new modalPinesJM().close()
+                        });
+                    </script>";
+                }
+                break;
+            case 'ConfirmOrder':
+                $providerId = $_POST['providerId'] ?? '';
+                $providerName = urldecode($_POST['providerName'] ?? '');
+
+                echo '
+                <script>
+                    $(document).ready(function () {
+                        const Session = new $_SESSION("listPurchasesProvider");
+                        let totalItems = 0;
+                        let totalCost = 0;
+                        let itemCount = 0;
+
+                        $.each(Session.val.items, function(index, item) {
+                            const providerCosts = item.price || { initial: 0, additionals: [] };
+                            let priceTotal = parseFloat(providerCosts.initial || 0);
+
+                            if (providerCosts.additionals && Array.isArray(providerCosts.additionals)) {
+                                providerCosts.additionals.forEach(function(add) {
+                                    priceTotal += parseFloat(add.value || 0);
+                                });
+                            }
+
+                            const itemTotal = priceTotal * Number(item.quantity);
+                            totalItems += Number(item.quantity);
+                            totalCost += itemTotal;
+                            itemCount++;
+                        });
+
+                        $("#orderItemCount").text(itemCount);
+                        $("#orderTotalItems").text(totalItems.toLocaleString());
+                        $("#orderTotalCost").text("$" + totalCost.toFixed(2));
+                    });
+                </script>
+
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirmar Pedido</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <h6 class="mb-3">Proveedor: <strong>' . htmlspecialchars($providerName) . '</strong></h6>
+                    <table class="table table-bordered mb-0">
+                        <tbody>
+                            <tr>
+                                <td>Productos</td>
+                                <td class="text-end"><span id="orderItemCount">0</span></td>
+                            </tr>
+                            <tr>
+                                <td>Total Unidades</td>
+                                <td class="text-end"><span id="orderTotalItems">0</span></td>
+                            </tr>
+                            <tr>
+                                <td>Costo Total</td>
+                                <td class="text-end text-success fw-bold"><span id="orderTotalCost">$0.00</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-dark" id="confirmProviderOrder">
+                        Confirmar
+                    </button>
+                </div>';
+                break;
+
+        }
+    } elseif (isset($_POST['ListBuys'])) {
+        switch ($_POST['Mode']) {
+            case 'View':
+                $connObject = new Connection();
+                $conn = $connObject->Connect();
+                
+                $purchaseId = $_POST['id'] ?? '';
+                $purchaseUuid = $_POST['uuid'] ?? '';
+                
+                $sql = "SELECT pp.*, p.name as provider_name
+                        FROM `provider_purchases` pp
+                        LEFT JOIN `providers` p ON p.id = pp.provider_id
+                        WHERE pp.id = ? OR pp.uuid = ?";
+                
+                $stmt = mysqli_prepare($conn, $sql);
+                mysqli_stmt_bind_param($stmt, "ss", $purchaseId, $purchaseUuid);
+                mysqli_stmt_execute($stmt);
+                $result = mysqli_stmt_get_result($stmt);
+                
+                if (mysqli_num_rows($result) > 0) {
+                    $purchase = mysqli_fetch_assoc($result);
+                    $content = json_decode($purchase['content'], true);
+                    $summary = json_decode($purchase['summary'], true);
+                    
+                    // Calcular totales
+                    $totalOrdered = 0;
+                    $totalReceived = 0;
+                    $totalCost = 0;
+                    foreach($content as $item) {
+                        $totalOrdered += intval($item['quantity'] ?? 0);
+                        $priceTotal = floatval($item['price']['initial'] ?? 0);
+                        if (isset($item['price']['additionals']) && is_array($item['price']['additionals'])) {
+                            foreach ($item['price']['additionals'] as $add) {
+                                $priceTotal += floatval($add['value'] ?? 0);
+                            }
+                        }
+                        $totalCost += $priceTotal * intval($item['quantity'] ?? 0);
+                    }
+                    foreach($summary as $item) {
+                        $totalReceived += intval($item['shipped_amount'] ?? 0);
+                    }
+                    $pending = $totalOrdered - $totalReceived;
+                    
+                    // Status badge
+                    $statusBadge = '';
+                    switch($purchase['status']) {
+                        case 'pending': $statusBadge = '<span class="badge bg-warning">Pendiente</span>'; break;
+                        case 'shipped': $statusBadge = '<span class="badge bg-info">Enviado</span>'; break;
+                        case 'received': $statusBadge = '<span class="badge bg-primary">Recibido</span>'; break;
+                        case 'completed': $statusBadge = '<span class="badge bg-success">Completado</span>'; break;
+                    }
+                    
+                    echo '
+                    <div class="modal-header border-0 pb-0">
+                        <div>
+                            <h5 class="modal-title mb-1">Compra #' . $purchase['id'] . '</h5>
+                            <small class="text-muted">' . htmlspecialchars($purchase['provider_name']) . ' · ' . date('d/m/Y H:i', strtotime($purchase['created_at'])) . '</small>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body pt-3">
+                        <!-- Resumen Cards -->
+                        <div class="row g-2 mb-4">
+                            <div class="col-6 col-md-3">
+                                <div class="border rounded p-2 text-center">
+                                    <small class="text-muted d-block">Estado</small>
+                                    ' . $statusBadge . '
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="border rounded p-2 text-center">
+                                    <small class="text-muted d-block">Ordenado</small>
+                                    <strong>' . number_format($totalOrdered) . '</strong>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="border rounded p-2 text-center">
+                                    <small class="text-muted d-block">Recibido</small>
+                                    <strong class="text-success">' . number_format($totalReceived) . '</strong>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="border rounded p-2 text-center">
+                                    <small class="text-muted d-block">Total</small>
+                                    <strong class="text-primary">$' . number_format($totalCost, 2) . '</strong>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <table class="ProviderList table table-striped table-bordered table-scroll">
+                            <thead>
+                                <tr>
+                                    <th class="col-3 text-light" scope="col">Código</th>
+                                    <th class="col-2 text-light" scope="col">Ordenado</th>
+                                    <th class="col-2 text-light" scope="col">Recibido</th>
+                                    <th class="col-2 text-light" scope="col">Pendiente</th>
+                                    <th class="col-3 text-light" scope="col">Cerrado</th>
+                                </tr>
+                            </thead>
+                            <div>
+                            <tbody class="table-group-divider" style="max-height: 26rem;">';
+                    
+                    foreach($content as $item) {
+                        $ordered = intval($item['quantity'] ?? 0);
+                        $received = 0;
+                        $isClosed = false;
+                        
+                        foreach($summary as $sumItem) {
+                            if($sumItem['code'] == $item['code']) {
+                                $received = intval($sumItem['shipped_amount'] ?? 0);
+                                $isClosed = isset($sumItem['is_closed']) ? (bool)$sumItem['is_closed'] : false;
+                                break;
+                            }
+                        }
+                        
+                        $itemPending = $ordered - $received;
+                        $pendingClass = $itemPending > 0 ? 'text-warning' : 'text-success';
+                        $toggleDisabled = ($purchase['status'] !== 'received') ? 'disabled' : '';
+                        $toggleChecked = $isClosed ? 'checked' : '';
+                        
+                        echo '
+                                    <tr>
+                                        <td class="col-3">' . htmlspecialchars($item['code']) . '</td>
+                                        <td class="col-2">' . $ordered . '</td>
+                                        <td class="col-2 text-success">' . $received . '</td>
+                                        <td class="col-2 ' . $pendingClass . '">' . $itemPending . '</td>
+                                        <td class="col-3">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input toggle-is-closed" type="checkbox" 
+                                                    data-uuid="' . $purchase['uuid'] . '" 
+                                                    data-code="' . htmlspecialchars($item['code']) . '" 
+                                                    ' . $toggleChecked . ' ' . $toggleDisabled . '>
+                                            </div>
+                                        </td>
+                                    </tr>';
+                    }
+                    
+                    echo '          </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 pt-0">
+                        <div class="d-flex gap-2 w-100 justify-content-between">
+                            <div>';
+                    
+                    // Botones según estado
+                    if($purchase['status'] == 'pending') {
+                        echo '<button type="button" class="btn btn-info" id="markShipped" data-uuid="' . $purchase['uuid'] . '">
+                                <i class="bi bi-truck"></i> Marcar Enviado
+                              </button>';
+                    }
+                    if($purchase['status'] == 'shipped') {
+                        echo '<button type="button" class="btn btn-dark" id="markReceived" data-uuid="' . $purchase['uuid'] . '">
+                                <i class="bi bi-box-arrow-in-down"></i> Marcar Recibido
+                              </button>';
+                    }
+                    if($purchase['status'] == 'received' || ($purchase['status'] == 'pending' && $pending == 0)) {
+                        echo '<button type="button" class="btn btn-dark" id="markCompleted" data-uuid="' . $purchase['uuid'] . '">
+                                <i class="bi bi-check-circle"></i> Cerrar Compra
+                              </button>';
+                    }
+                    
+                    echo '      </div>
+                            <button type="button" class="btn btn-dark" data-bs-dismiss="modal">Cerrar</button>
+                        </div>
+                    </div>';
+                    
+                } else {
+                    echo '
+                    <div class="modal-body text-center py-5">
+                        <i class="bi bi-exclamation-circle text-danger" style="font-size:3rem"></i>
+                        <p class="mt-3 mb-0">No se encontró la compra.</p>
+                    </div>';
+                }
+                break;
+        }
+    }
+}
 
 if (isset($_POST['Statistics'])) {
     if (isset($_POST['Report'])) {

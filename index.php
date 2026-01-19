@@ -82,6 +82,9 @@ if (isset($_GET['api_key'])) {
         echo '<script src="js/report.js"></script>';
         echo '<script src="js/Statistics/' . $get[1] . '.js"></script>';
     }
+    elseif (isset($_GET["Purchases"])) {
+        echo '<script src="js/Purchases/' . $get[1] . '.js"></script>';
+    }
 
 
     ?>
@@ -184,8 +187,14 @@ if (isset($_GET['api_key'])) {
                         </li>
                         <li class="sidebar-item">
                             <a name="Departaments" href="?DataBase&Departaments" class="sidebar-link">
-                                <i class="bi bi-grid-1x2"></i>
+                                <i class="bi bi-box-seam"></i>
                                 Departamentos
+                            </a>
+                        </li>
+                        <li class="sidebar-item">
+                            <a name="Providers" href="?DataBase&Providers" class="sidebar-link">
+                                <i class="bi bi-building"></i>
+                                Proveedores
                             </a>
                         </li>
                         <li class="sidebar-item">
@@ -195,6 +204,30 @@ if (isset($_GET['api_key'])) {
                             </a>
                         </li>
                     </ul>
+                </li>
+
+                <!-- Compras -->
+                <li class="sidebar-item">
+                    <a name="Purchases" class="sidebar-link collapsed has-dropdown" data-bs-toggle="collapse"
+                        data-bs-target="#purchases" aria-expanded="false" aria-controls="purchases">
+                        <i class="bi bi-cart-check"></i>
+                    </a>
+
+                    <ul id="purchases" class="sidebar-dropdown list-unstyled collapse" data-bs-parent="#sidebar">
+                        <li class="sidebar-item">
+                            <a name="List" href="?Purchases&List" class="sidebar-link">
+                                <i class="bi bi-cart"></i>
+                                Compras
+                            </a>
+                        </li>
+                        <li class="sidebar-item">
+                            <a name="Create" href="?Purchases&Create" class="sidebar-link">
+                                <i class="bi bi-plus-circle"></i>
+                                Crear Compras
+                            </a>
+                        </li>
+                    </ul>
+                    
                 </li>
 
                 <!-- Opciones -->

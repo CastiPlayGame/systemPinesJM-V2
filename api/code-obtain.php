@@ -57,10 +57,6 @@ if (isset($_POST['Storage'])) {
             $sql = "SELECT * FROM `items` ORDER BY `items`.`id` ASC";
             $result = mysqli_query($conn, $sql);
 
-            $filters = [json_decode($_POST['Filter'], true), true];
-            if (empty($filters[0]['filter'])) {
-                $filters[1] == false;
-            }
             if (mysqli_num_rows($result) > 0) {
                 while ($row = mysqli_fetch_assoc($result)) {
                     $jsonQuantity = json_decode($row['quantity'], true);
@@ -75,12 +71,7 @@ if (isset($_POST['Storage'])) {
                         }
                         $depositList[$depo] = $totalDeposit;
                     }
-                    //Filtros
-                    if ($filters[1] == true) {
-                        if (filtersFunc($filters[0], $totalItem, $depositList, $jsonQuantity)) {
-                            continue;
-                        }
-                    }
+
                     echo '
                     <tr>
                         <th class="col-4" scope="row">' . $row['id'] . '</th>
@@ -441,6 +432,40 @@ if (isset($_POST['DataBase'])) {
             echo "0 results";
         }
     }
+    if (isset($_POST['Providers'])) {
+        $connObject = new Connection();
+        $conn = $connObject->Connect();
+
+        $sql = "SELECT `id`, `name`, `plaftorm`, `platorm_other`, `email`, `contact` FROM `providers` ORDER BY `name` ASC";
+        $result = mysqli_query($conn, $sql);
+
+        if (mysqli_num_rows($result) > 0) {
+            while ($row = mysqli_fetch_assoc($result)) {
+                // Determine the platform to display
+                $displayPlatform = $row['plaftorm'];
+                if ($row['plaftorm'] === 'other') {
+                    $displayPlatform = $row['platorm_other'];
+                }
+
+                echo '
+                <tr> 
+                    <th class="col-2 col-md-1" scope="col">' . $row['id'] . '</th>
+                    <td class="col-6 d-sm-table-cell d-md-none">' . $row['name'] . '</td>
+                    <td class="col-3 d-none d-sm-none d-md-table-cell">' . $displayPlatform . '</td>
+                    <td class="col-3 d-none d-sm-none d-xl-table-cell d-lg-none">' . $row['email'] . '</td>
+                    <td class="col-2 d-none d-lg-table-cell d-md-none">' . $row['contact'] . '</td>
+                    <td class="col-4 col-md-2">
+                        <button type="button" class="btn btn-dark btn-account-primary shadow-none border-0" modal-data-locate="DataBase&Providers&Mode=Edit&id=' . $row['id'] . '" modal-size="2" id="modalBtn"><i class="bi bi-pencil-fill"></i></button>
+                        <button type="button" class="btn btn-dark btn-account-primary shadow-none border-0" modal-data-locate="DataBase&Providers&Mode=AddCodes&id=' . $row['id'] . '" modal-size="3" id="modalBtn" title="Gestionar códigos"><i class="bi bi-upc-scan"></i></button>
+                        <button type="button" class="btn btn-dark btn-account-primary shadow-none border-0" input-data="' . $row['id'] . '" id="delBtnProvider"><i class="bi bi-trash3-fill"></i></button>
+                    </td>
+                </tr>
+                ';
+            }
+        } else {
+            echo "0 results";
+        }
+    }
     if (isset($_POST['Departaments'])) {
         $connObject = new Connection();
         $conn = $connObject->Connect();
@@ -476,6 +501,38 @@ if (isset($_POST['DataBase'])) {
             echo "0 results";
         }
     }
+    
+    // Busqueda global de items (por id o descripción)
+    if (isset($_POST['SearchItems'])) {
+        $connObject = new Connection();
+        $conn = $connObject->Connect();
+
+        $searchTerm = $_POST['term'];
+        
+        $sql = "SELECT id, 
+                JSON_VALUE(info, '$.desc') AS descp
+                FROM `items` 
+                WHERE id LIKE ? OR 
+                      JSON_VALUE(info, '$.desc') LIKE ?
+                LIMIT 10";
+
+        $stmt = mysqli_prepare($conn, $sql);
+        $searchPattern = "%$searchTerm%";
+        mysqli_stmt_bind_param($stmt, "ss", $searchPattern, $searchPattern);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+
+        $items = array();
+        while ($row = mysqli_fetch_assoc($result)) {
+            $items[] = array(
+                'id' => $row['id'],
+                'name' => $row['descp'] ?: 'Sin descripción'
+            );
+        }
+        
+        die(json_encode($items));
+    }
+
 }
 
 if (isset($_POST['Accounting'])) {
@@ -935,6 +992,243 @@ if (isset($_POST['Accounting'])) {
                 die(json_encode(["success" => true, "find" => false]));
             }
         }
+    }
+}
+
+if (isset($_POST['Provider'])) {
+    // Busqueda de items limitados a un proveedor (SearchItemsProvider)
+    if (isset($_POST['SearchItemsProvider'])) {
+        $connObject = new Connection();
+        $conn = $connObject->Connect();
+
+        $searchTerm = $_POST['term'];
+        $providerId = isset($_POST['providerId']) ? trim($_POST['providerId']) : '';
+
+        if ($providerId === '') {
+            die(json_encode([]));
+        }
+
+        $sql = "SELECT DISTINCT i.id,
+                       pc.provider_code,
+                       JSON_VALUE(i.info, '$.desc') AS descp
+                FROM `items` i
+                INNER JOIN `provider_codes` pc ON pc.item_id COLLATE utf8mb4_0900_ai_ci = i.id
+                WHERE pc.provider_id = ?
+                  AND (
+                    i.id LIKE ? OR 
+                    pc.provider_code LIKE ? OR
+                    JSON_VALUE(i.info, '$.desc') LIKE ?
+                  )
+                LIMIT 10";
+
+        $stmt = mysqli_prepare($conn, $sql);
+        $searchPattern = "%$searchTerm%";
+        mysqli_stmt_bind_param($stmt, "ssss", $providerId, $searchPattern, $searchPattern, $searchPattern);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+
+        $items = array();
+        while ($row = mysqli_fetch_assoc($result)) {
+            $description = $row['descp'] ?: 'Sin descripción';
+            $providerCode = $row['provider_code'];
+            
+            $items[] = array(
+                'id' => $row['id'],
+                'provider_code' => $providerCode,
+                'name' => $description
+            );
+        }
+        
+        die(json_encode($items));
+    }
+    
+    if (isset($_POST['ProviderCodes'])) {
+        $connObject = new Connection();
+        $conn = $connObject->Connect();
+
+        $providerId = $_POST['providerId'];
+        
+        $sql = "SELECT pc.id, pc.item_id, pc.provider_code, pc.costs, pc.notes, pc.created_at
+                FROM `provider_codes` pc
+                WHERE pc.provider_id = ?
+                ORDER BY pc.created_at DESC";
+        
+        $stmt = mysqli_prepare($conn, $sql);
+        mysqli_stmt_bind_param($stmt, "s", $providerId);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+
+        $codes = array();
+        while ($row = mysqli_fetch_assoc($result)) {
+            $codes[] = array(
+                'id' => $row['id'],
+                'item_id' => $row['item_id'],
+                'provider_code' => $row['provider_code'],
+                'costs' => $row['costs'],
+                'notes' => $row['notes'],
+                'created_at' => $row['created_at']
+            );
+        }
+        
+        die(json_encode($codes));
+    }   
+
+    if (isset($_POST['VerifyProviderCode'])) {
+        $connObject = new Connection();
+        $conn = $connObject->Connect();
+
+        $providerId = $_POST['providerId'];
+        $providerCode = $_POST['providerCode'];
+        
+        $sql = "SELECT pc.id, pc.item_id, pc.provider_code, pc.costs, pc.notes, pc.created_at, i.quantity
+                FROM `provider_codes` pc
+                LEFT JOIN `items` i ON i.id COLLATE utf8mb4_0900_ai_ci = pc.item_id COLLATE utf8mb4_0900_ai_ci
+                WHERE pc.provider_id = ? AND (pc.provider_code = ? OR pc.item_id = ?)";
+        
+        $stmt = mysqli_prepare($conn, $sql);
+        mysqli_stmt_bind_param($stmt, "sss", $providerId, $providerCode, $providerCode);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+
+        $code = mysqli_fetch_assoc($result);
+
+        if (!empty($code)) {
+            $inventory = 0;
+            $quantityData = json_decode($code['quantity'], true);
+            if (!empty($quantityData) && is_array($quantityData)) {
+                foreach ($quantityData as $location) {
+                    if (isset($location['Pcs'])) {
+                        $inventory += intval($location['Pcs']);
+                    }
+                    if (isset($location['Packets']) && is_array($location['Packets'])) {
+                        foreach ($location['Packets'] as $packSize => $packQty) {
+                            $inventory += intval($packSize) * intval($packQty);
+                        }
+                    }
+                }
+            }
+
+            die(json_encode(array(true, array(
+                'id' => $code['id'],
+                'item_id' => $code['item_id'],
+                'provider_code' => $code['provider_code'],
+                'costs' => json_decode($code['costs'],true),
+                'notes' => $code['notes'],
+                'created_at' => $code['created_at'],
+                'inventory' => $inventory
+            ))));  
+        } else {
+            die(json_encode(array(false, "!Ups. No Existe")));
+        }
+    }
+
+    if (isset($_POST['ListBuys'])) {
+        $connObject = new Connection();
+        $conn = $connObject->Connect();
+
+        $sql = "SELECT pp.id, pp.uuid, pp.provider_id, pp.content, pp.summary, pp.status, pp.created_at, pp.updated_at,
+                p.name as provider_name
+                FROM `provider_purchases` pp
+                LEFT JOIN `providers` p ON p.id = pp.provider_id
+                ORDER BY pp.created_at DESC";
+        
+        $result = mysqli_query($conn, $sql);
+        
+        $purchases = array();
+        while ($row = mysqli_fetch_assoc($result)) {
+            $content = json_decode($row['content'], true);
+            $summary = json_decode($row['summary'], true);
+            
+            // Calcular totales
+            $totalItems = is_array($content) ? count($content) : 0;
+            $totalUnits = 0;
+            $totalCost = 0;
+            
+            if (is_array($content)) {
+                foreach ($content as $item) {
+                    $totalUnits += intval($item['quantity'] ?? 0);
+                    $priceTotal = floatval($item['price']['initial'] ?? 0);
+                    if (isset($item['price']['additionals']) && is_array($item['price']['additionals'])) {
+                        foreach ($item['price']['additionals'] as $add) {
+                            $priceTotal += floatval($add['value'] ?? 0);
+                        }
+                    }
+                    $totalCost += $priceTotal * intval($item['quantity'] ?? 0);
+                }
+            }
+            
+            $purchases[] = array(
+                'id' => $row['id'],
+                'uuid' => $row['uuid'],
+                'provider_id' => $row['provider_id'],
+                'provider_name' => $row['provider_name'] ?? 'Desconocido',
+                'status' => $row['status'],
+                'total_items' => $totalItems,
+                'total_units' => $totalUnits,
+                'total_cost' => round($totalCost, 2),
+                'created_at' => $row['created_at'],
+                'updated_at' => $row['updated_at']
+            );
+        }
+        
+        die(json_encode($purchases));
+    }
+    if (isset($_POST['ProviderPurchaseOrders'])) {
+        $connObject = new Connection();
+        $conn = $connObject->Connect();
+        $productCode = $_POST['item_id'];
+        
+        $sql = "SELECT pp.id, pp.uuid, pp.content, pp.summary, p.name as provider_name 
+                 FROM provider_purchases pp
+                 LEFT JOIN providers p ON p.id = pp.provider_id
+                 WHERE pp.status = 'received'";
+        
+        $resultPurchases = mysqli_query($conn, $sql);
+        
+        $purchaseOptionsData = array();
+        while ($purchase = mysqli_fetch_assoc($resultPurchases)) {
+            $content = json_decode($purchase['content'], true);
+            $summary = json_decode($purchase['summary'], true);
+            
+            $orderedQty = 0;
+            $shippedQty = 0;
+            $isClosed = false;
+            
+            $hasItem = false;
+
+            if (is_array($content)) {
+                foreach ($content as $item) {
+                     // Check for matching item ID
+                    if (isset($item['code']) && $item['code'] === $productCode) {
+                        $orderedQty = intval($item['quantity'] ?? 0);
+                        $hasItem = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (is_array($summary)) {
+                foreach ($summary as $sumItem) {
+                    if (isset($sumItem['code']) && $sumItem['code'] === $productCode) {
+                        $shippedQty = intval($sumItem['shipped_amount'] ?? 0);
+                        $isClosed = isset($sumItem['is_closed']) ? (bool)$sumItem['is_closed'] : false;
+                        break;
+                    }
+                }
+            }
+            
+            if ($hasItem && !$isClosed && $orderedQty > 0) {
+                $purchaseOptionsData[] = array(
+                    'uuid' => $purchase['uuid'],
+                    'provider_name' => $purchase['provider_name'],
+                    'id' => $purchase['id'],
+                    'ordered' => $orderedQty,
+                    'shipped' => $shippedQty
+                );
+            }
+        }
+        
+        die(json_encode($purchaseOptionsData));
     }
 }
 
@@ -1417,4 +1711,130 @@ if (isset($_POST["Statistics"])) {
 
         die(json_encode(["content" => $stats_output]));
     }
+    // Stat9: Item sales last N months + top customers
+    if (isset($_POST["Stat9"])) {
+        $connObject = new Connection();
+        $conn = $connObject->Connect();
+
+        $itemId = $_POST["itemId"] ?? '';
+        $months = isset($_POST["months"]) ? intval($_POST["months"]) : 3;
+        
+        // Limitar meses entre 1 y 6
+        $months = max(1, min(6, $months));
+        
+        if (empty($itemId)) {
+            die(json_encode(["error" => "itemId is required"]));
+        }
+
+        // Get current date and calculate N months ago
+        $now = new DateTime('now', new DateTimeZone('America/New_York'));
+        $monthsAgo = clone $now;
+        $monthsAgo->modify("-$months months");
+
+        $sql = "SELECT buy, CAST(AES_DECRYPT(info,'" . CLAVE_AES . "') AS CHAR) AS info, event FROM `sales` 
+                WHERE NOT JSON_EXTRACT(`event`,CONCAT(\"$[\",JSON_LENGTH(`event`)-1,\"].event\")) IN (3)";
+        $result = mysqli_query($conn, $sql);
+
+        $monthlySales = [];
+        $customerSales = [];
+
+        // Initialize last N months
+        for ($i = $months - 1; $i >= 0; $i--) {
+            $monthDate = clone $now;
+            $monthDate->modify("-$i months");
+            $monthKey = $monthDate->format('Y-m');
+            $monthlySales[$monthKey] = 0;
+        }
+
+        while ($row = mysqli_fetch_assoc($result)) {
+            $buyData = json_decode($row["buy"], true);
+            $eventData = json_decode($row["event"], true);
+            $infoData = json_decode($row["info"], true);
+
+            $saleDate = null;
+            foreach ($eventData as $a) {
+                if ($a["event"] == 0) {
+                    $saleDate = $a["date"];
+                }
+            }
+
+            if ($saleDate === null) continue;
+
+            $saleDateObj = new DateTime($saleDate);
+            if ($saleDateObj < $monthsAgo) continue;
+
+            $monthKey = $saleDateObj->format('Y-m');
+
+            foreach ($buyData as $c) {
+                if ($c["code"] !== $itemId) continue;
+
+                $quantity = 0;
+                foreach ($c["packs"] as $k => $v) {
+                    $quantity += ($k * $v);
+                }
+
+                // Add to monthly sales
+                if (isset($monthlySales[$monthKey])) {
+                    $monthlySales[$monthKey] += $quantity;
+                }
+
+                // Add to customer sales
+                $customerId = $infoData[0] ?? 'Desconocido';
+                $customerName = $infoData[2] ?? 'Sin nombre';
+                if (!isset($customerSales[$customerId])) {
+                    $customerSales[$customerId] = [
+                        'name' => $customerName,
+                        'quantity' => 0,
+                        'monthly' => array_fill_keys(array_keys($monthlySales), 0)
+                    ];
+                }
+                $customerSales[$customerId]['quantity'] += $quantity;
+                if (isset($customerSales[$customerId]['monthly'][$monthKey])) {
+                    $customerSales[$customerId]['monthly'][$monthKey] += $quantity;
+                }
+            }
+        }
+
+        // Format monthly sales for chart
+        $salesLabels = [];
+        $salesData = [];
+        $monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        foreach ($monthlySales as $monthKey => $qty) {
+            $parts = explode('-', $monthKey);
+            $monthIdx = intval($parts[1]) - 1;
+            $salesLabels[] = $monthNames[$monthIdx] . ' ' . $parts[0];
+            $salesData[] = $qty;
+        }
+
+        // Sort customers by quantity and get top 5
+        uasort($customerSales, function($a, $b) {
+            return $b['quantity'] - $a['quantity'];
+        });
+        $topCustomers = array_slice($customerSales, 0, 5, true);
+
+        $customerLabels = [];
+        $customerData = [];
+        $customerMonthlyData = [];
+        
+        foreach ($topCustomers as $id => $info) {
+            $customerLabels[] = $info['name'];
+            $customerData[] = $info['quantity'];
+            // Datos mensuales del cliente
+            $customerMonthlyData[] = array_values($info['monthly']);
+        }
+
+        die(json_encode([
+            "sales" => [
+                "labels" => $salesLabels,
+                "data" => $salesData
+            ],
+            "customers" => [
+                "labels" => $customerLabels,
+                "data" => $customerData,
+                "monthlyLabels" => $salesLabels,
+                "monthlyData" => $customerMonthlyData
+            ]
+        ]));
+    }
 }
+

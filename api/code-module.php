@@ -504,6 +504,7 @@ function log_request($data)
     try {
         $response = $client->post($url, [
             'json' => $data,
+            'verify' => false,
             'headers' => [
                 'Content-Type' => 'application/json',
                 'Authorization' => 'Bearer ' .  $_ENV['API_KEY_ADMIN'],

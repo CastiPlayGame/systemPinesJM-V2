@@ -53,7 +53,7 @@ const updateShort = 15
 const updateSLong = 60
 const DepositosAvaiable = 1
 
-const urlAPI = "http://multipartes.ddnsfree.com:2045/newApi/"
+const urlAPI = "http://192.168.0.158/newApi/"
 const urlAPI_AI = "http://multipartes.ddnsfree.com:2044"
 const urlAPI_AI_WS = "ws://multipartes.ddnsfree.com:2044"
 
@@ -265,8 +265,12 @@ function numberFormat(num) {
 }
 
 
-function numberInput(i) {
-    i.value = i.value.replace(/[^0-9]/g, '').replace(/(\..*?)\..*/g, '$1');
+function numberInput(i, allowDecimal = false) {
+    if (allowDecimal) {
+        i.value = i.value.replace(/[^0-9.]/g, '').replace(/^([^.]*\.[0-9]*).*$/, '$1');
+    } else {
+        i.value = i.value.replace(/[^0-9]/g, '');
+    }
 }
 
 function formatDate(dateString) {

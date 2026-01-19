@@ -67,20 +67,27 @@ function startPoolUpdates() {
 /** Actualiza la tabla de trabajos obteniendo los datos desde la API. */
 function updatePoolTable() {
     const $tbody = $("#Pool tbody");
-    $tbody.html('<tr><td colspan="8" class="text-center"><div class="spinner-border text-primary" role="status"></div> Cargando...</td></tr>');
+    $tbody.html('<tr><td colspan="9" class="text-center"><div class="spinner-border text-primary" role="status"></div> Cargando...</td></tr>');
     $.ajax({
         type: "GET",
         url: `${urlAPI}batch_jobs`,
         headers: { 'Authorization': `Bearer ${apiKey}` },
         dataType: "json",
         success: (data) => {
-            const jobs = data?.response?.jobs || [];
+            // Filtramos trabajos cuyo aporte (load_amount) sea distinto de 0
+            const jobs = (data?.response?.jobs || []).filter(job => Number(job.load_amount) !== 0);
             if (!jobs.length) {
-                $tbody.html('<tr><td colspan="8" class="text-center text-muted"><i class="bi bi-inbox"></i> No hay trabajos en la cola.</td></tr>');
+                $tbody.html('<tr><td colspan="9" class="text-center text-muted"><i class="bi bi-inbox"></i> No hay trabajos en la cola.</td></tr>');
                 return;
             }
             const rows = jobs.map(job => `
                 <tr>
+                    <td class="text-center">
+                        <input type="checkbox"
+                               class="form-check-input job-select-checkbox"
+                               data-id="${job.id}"
+                               data-priority="${job.priority}">
+                    </td>
                     <th>${job.id}</th>
                     <td>${renderPriority(job.priority)}</td>
                     <td>${job.code || '-'}</td>
@@ -99,8 +106,9 @@ function updatePoolTable() {
                 </tr>
             `).join('');
             $tbody.html(rows);
+            $('#selectAllJobs').prop('checked', false);
         },
-        error: () => $tbody.html('<tr><td colspan="8" class="text-center text-danger"><i class="bi bi-exclamation-triangle"></i> Error al cargar los datos.</td></tr>')
+        error: () => $tbody.html('<tr><td colspan="9" class="text-center text-danger"><i class="bi bi-exclamation-triangle"></i> Error al cargar los datos.</td></tr>')
     });
 }
 
@@ -134,6 +142,63 @@ function updateJobPriorityApi(jobId, newPriority) {
             updatePoolTable();
         },
         error: () => Swal.fire('Error', 'No se pudo actualizar la prioridad.', 'error')
+    });
+}
+
+/**
+ * Cambia la prioridad de varios trabajos en lote.
+ * @param {Array<number>} jobIds - IDs de los trabajos seleccionados.
+ * @param {number} newPriority - Nueva prioridad (0 o 1).
+ */
+function updateJobsPriorityBulk(jobIds, newPriority) {
+    if (!jobIds.length) return;
+
+    const requests = jobIds.map(id => $.ajax({
+        type: "PATCH",
+        url: `${urlAPI}batch_jobs/${id}`,
+        headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        data: JSON.stringify({ priority: newPriority })
+    }));
+
+    $.when.apply($, requests)
+        .done(() => {
+            Swal.fire('¡Éxito!', 'La prioridad de los trabajos seleccionados ha sido cambiada.', 'success');
+            updatePoolTable();
+        })
+        .fail(() => {
+            Swal.fire('Error', 'No se pudieron actualizar todas las prioridades seleccionadas.', 'error');
+            updatePoolTable();
+        });
+}
+
+/**
+ * Maneja el cambio de prioridad para varios trabajos seleccionados mediante checkbox.
+ * @param {number} newPriority - Nueva prioridad (0 baja, 1 alta).
+ */
+function handleBulkChangePriority(newPriority) {
+    const $selected = $('.job-select-checkbox:checked');
+    if (!$selected.length) {
+        Swal.fire('Atención', 'Selecciona al menos un trabajo de la lista.', 'info');
+        return;
+    }
+
+    const jobIds = $selected.map(function () {
+        return $(this).data('id');
+    }).get();
+
+    const label = newPriority === 1 ? 'ALTA' : 'Baja';
+
+    Swal.fire({
+        title: 'Confirmar Cambio Masivo',
+        html: `¿Cambiar la prioridad de <b>${jobIds.length}</b> trabajo(s) seleccionado(s) a <b>${label}</b>?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, cambiar todos',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            updateJobsPriorityBulk(jobIds, newPriority);
+        }
     });
 }
 
@@ -274,5 +339,27 @@ $(document).ready(() => {
     $(document).on('click', '.delete-job-btn', function() {
         const jobId = $(this).data('id');
         handleCancelJob(jobId);
+    });
+
+    // Checkbox de selección general
+    $(document).on('change', '#selectAllJobs', function() {
+        const checked = this.checked;
+        $('.job-select-checkbox').prop('checked', checked);
+    });
+
+    // Si se desmarca alguno, quitar selección general
+    $(document).on('change', '.job-select-checkbox', function() {
+        if (!this.checked) {
+            $('#selectAllJobs').prop('checked', false);
+        }
+    });
+
+    // Botones de cambio masivo de prioridad
+    $('#btnBulkHighPriority').on('click', function() {
+        handleBulkChangePriority(1);
+    });
+
+    $('#btnBulkLowPriority').on('click', function() {
+        handleBulkChangePriority(0);
     });
 });

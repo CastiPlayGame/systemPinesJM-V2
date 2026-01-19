@@ -123,7 +123,7 @@ class Core {
             </th>
             <td class="col-stv-3" scope="col">
                 <h1 hidden></h1>
-                <input class="form-control" type="text" placeholder="Codigo" id="inputItem" oninput="this.value = this.value.toUpperCase();">
+                <input class="form-control" type="text" placeholder="Codigo" id="inputItem" autocomplete="off" oninput="this.value = this.value.toUpperCase();">
             </td>
             <td class="col-stv-4" scope="col">
                 <select class="form-select" id="selectOrigin" hidden>
@@ -155,7 +155,7 @@ class Core {
             </td>
         </tr>
         `);
-        $(`.CartList tbody tr#${row} #price input`).maskMoney();
+        //$(`.CartList tbody tr#${row} #price input`).maskMoney();
         row++;
     }
     loadsRows() {
@@ -624,7 +624,7 @@ class Core {
 
         // Validar que cada item tenga al menos un pack con cantidad
         let hasEmptyPacks = false;
-        $.each(Session.val.items, function(key, item) {
+        $.each(Session.val.items, function (key, item) {
             if (!item.packs || Object.keys(item.packs).length === 0) {
                 hasEmptyPacks = true;
                 return false; // break the loop
@@ -1112,9 +1112,187 @@ $(document).ready(async function () {
         CoreFunc.updateRowAndFooter()
         CoreFunc.newRow()
     });
-    
-    $(document).on('change', '#inputItem', function () {
+    // Autocomplete / search suggestions for inputItem (like Providers codes)
+    // track fast key intervals to detect barcode scanners
+    $(document).on('keydown', '#inputItem', function (e) {
+        const now = Date.now();
+        window._pointKeyTimes = window._pointKeyTimes || [];
+        window._pointKeyTimes.push(now);
+        if (window._pointKeyTimes.length > 12) window._pointKeyTimes.shift();
+        if (window._pointKeyTimes.length > 1) {
+            const diffs = [];
+            for (let i = 1; i < window._pointKeyTimes.length; i++) diffs.push(window._pointKeyTimes[i] - window._pointKeyTimes[i-1]);
+            const avg = diffs.reduce((a,b)=>a+b,0)/diffs.length;
+            // if average keystroke interval is very small, treat as scanner
+            window._pointForceSearch = avg < 45;
+        }
+    });
+
+    $(document).on('input', '#inputItem', function (e) {
+        const $input = $(this);
+        window._lastPointInput = $input; // store for later when clicking result
+        const term = $input.val().toUpperCase();
+
+        // clear previous timer
+        if (window._pointSearchTimer) {
+            clearTimeout(window._pointSearchTimer);
+            window._pointSearchTimer = null;
+        }
+
+        $('.item-search-results').remove();
+
+        // don't search for very short terms
+        if (!term || term.length < 2) {
+            return;
+        }
+
+        // debounce network calls to avoid race when typing fast (scanner)
+        var delay = window._pointForceSearch ? 60 : 180;
+        window._pointSearchTimer = setTimeout(function () {
+            // abort previous in-flight search to avoid duplicate boxes/race
+            try { if (window._pointSearchXhr && window._pointSearchXhr.readyState && window._pointSearchXhr.readyState !== 4) window._pointSearchXhr.abort(); } catch(e){}
+            window._pointSearchXhr = $.ajax({
+                type: "POST",
+                url: "api/code-obtain.php",
+                data: "DataBase&SearchItems&term=" + encodeURIComponent(term),
+                success: function (data) {
+                    // clear ref to finished request
+                    window._pointSearchXhr = null;
+                    // ensure only one results container
+                    $('.item-search-results').remove();
+                    var results = [];
+                    try { results = JSON.parse(data); } catch (e) { results = []; }
+
+                    var $results = $('<div class="list-group position-absolute item-search-results shadow-lg" style="z-index:3000;background:#fff;border:1px solid #e9ecef;border-radius:6px;max-height:240px;overflow-y:auto;padding:0"></div>');
+
+                    if (results.length > 0) {
+                        results.forEach(function (item) {
+                            var $btn = $('<button type="button" class="list-group-item list-group-item-action item-result-point" data-id="' + item.id + '" data-name="' + item.name + '"><div class="fw-bold">' + item.id + '</div><div class="text-truncate small">' + item.name + '</div></button>');
+                            $results.append($btn);
+                        });
+                    } else {
+                        $results.append('<div class="list-group-item text-muted small">No se encontraron items</div>');
+                    }
+
+                    // append and position
+                    $('body').append($results);
+                    const off = $input.offset();
+                    $results.css({ top: off.top + $input.outerHeight(), left: off.left, width: $input.outerWidth() });
+                },
+                error: function(xhr, status, err) {
+                    // ignore abort errors silently
+                    if (status !== 'abort') console.error('Search items error', err);
+                    window._pointSearchXhr = null;
+                }
+            });
+        }, delay);
+    });
+
+    // when regaining focus, rebuild suggestions if there is a valid term
+    $(document).on('focus', '#inputItem', function () {
+        const $input = $(this);
+        const term = ($input.val() || '').toUpperCase();
+        if (term && term.length >= 3) {
+            // trigger the same debounced search flow
+            $input.trigger('input');
+        }
+    });
+
+    // click on suggestion: set input, mark selectedItem and trigger change
+    $(document).on('click', '.item-result-point', function (e) {
+        e.preventDefault();
+        const code = $(this).data('id');
+        const name = $(this).data('name');
+        $('.item-search-results').remove();
+
+        const $input = $(window._lastPointInput || document.activeElement);
+        if ($input && $input.length) {
+            $input.data('selectedItem', { id: code, name: name });
+            $input.val(code);
+            $input.trigger('change');
+        }
+    });
+
+    // keyboard navigation for suggestions (arrows + enter)
+    $(document).on('keydown', '#inputItem', function (e) {
+        const $results = $('.item-search-results');
+        if ($results.length === 0) return;
+
+        const KEY = e.which || e.keyCode;
+        // down or up
+        if (KEY === 40 || KEY === 38) {
+            e.preventDefault();
+            let $current = $results.find('.item-result-point.active');
+            if ($current.length === 0) {
+                $current = (KEY === 40) ? $results.find('.item-result-point').first() : $results.find('.item-result-point').last();
+                $current.addClass('active').siblings().removeClass('active');
+                return;
+            }
+
+            const $next = (KEY === 40) ? $current.nextAll('.item-result-point').first() : $current.prevAll('.item-result-point').first();
+            if ($next.length) {
+                $current.removeClass('active');
+                $next.addClass('active');
+                const top = $next.position().top;
+                $results.scrollTop($results.scrollTop() + top - 20);
+            }
+            return;
+        }
+
+        // enter -> if only one result, select it; else require an active selection
+        if (KEY === 13) {
+            const $all = $results.find('.item-result-point');
+            let $sel = $results.find('.item-result-point.active').first();
+            if ($all.length === 1) {
+                $sel = $all.first();
+            }
+            if ($sel && $sel.length) {
+                e.preventDefault();
+                $sel.trigger('click');
+            }
+        }
+    });
+
+    // click outside to close suggestions
+    $(document).on('click', function (e) {
+        if (!$(e.target).closest('.item-search-results, #inputItem').length) {
+            $('.item-search-results').remove();
+        }
+    });
+
+    // Note: all verification logic lives inside the change handler below.
+
+    // central change handler: all verification and swal logic centralised here
+    $(document).on('change', '#inputItem', async function (e) {
         const inp = $(this);
+
+        // prevent re-entrancy
+        if (inp.data('processing')) return;
+        inp.data('processing', true);
+
+        let selected = inp.data('selectedItem');
+
+        // If no selectedItem, but there's exactly one search result visible, auto-select it
+        if (!selected || !selected.id) {
+            const $results = $('.item-search-results');
+            if ($results.length) {
+                const $items = $results.find('.item-result-point');
+                if ($items.length === 1) {
+                    const $it = $items.first();
+                    const id = $it.data('id');
+                    const name = $it.data('name');
+                    inp.data('selectedItem', { id: id, name: name });
+                    inp.val(id);
+                    selected = inp.data('selectedItem');
+                }
+            }
+        }
+
+        // remove suggestion overlay (and cancel any pending search request)
+        $('.item-search-results').remove();
+        try { if (window._pointSearchXhr && window._pointSearchXhr.readyState && window._pointSearchXhr.readyState !== 4) window._pointSearchXhr.abort(); } catch(e){}
+
+        // reuse variables from previous implementation
         const cont = inp.parent().parent();
         var list = [];
         if (inp.val() != '') {
@@ -1125,6 +1303,85 @@ $(document).ready(async function () {
                     }
                 });
             }
+
+
+
+            // if no selection resolved and there are multiple results, stop here gracefully
+            if (!selected || !selected.id) {
+                inp.data('processing', false);
+                if ((inp.val() || '').length >= 3) {
+                    // rebuild suggestions
+                    inp.trigger('input');
+                }
+                return;
+            }
+
+            let imgUrl = '';
+            try { imgUrl = await new VerifyPass().getImage(selected.id); } catch (err) { imgUrl = './resc/img/No-Image-Placeholder.png'; }
+
+            // Mejor diseño: modal más limpio, imagen grande, info clara, colores neutros y botones grandes
+            // guard: close any previous swal to avoid stale popups
+            try { if (Swal.isVisible()) { Swal.close(); } } catch(e){}
+            // create a unique token for this cycle to ignore stale confirms
+            const swalToken = Date.now().toString() + Math.random().toString(36).slice(2);
+            inp.data('swalToken', swalToken);
+            const swalRes = await Swal.fire({
+                html: `
+                    <div class="d-flex flex-column align-items-center p-2">
+                        <div class="mb-2" style="width: 100%; text-align: center;">
+                            <img id="swal-item-img" src="${imgUrl}" style="max-width:220px;max-height:220px;border-radius:10px;box-shadow:0 2px 12px #0001;">
+                        </div>
+                        <div class="mb-2 w-100 text-center">
+                            <span class="fw-bold fs-5" style="color:var(--secondary_text_color)">${selected.id}</span>
+                            ${selected.name ? `<span class="ms-2 fs-6" style="color:var(--secondary_text_color)">${selected.name}</span>` : ''}
+                        </div>
+                        <div class="mb-2 w-100 text-center">
+                            <span class="text-muted small">Presione <kbd>ENTER</kbd> para aceptar o <kbd>BORRAR</kbd> para quitar.</span>
+                        </div>
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: '<span style="font-size:1.1rem;padding:0.5rem 1.5rem;">Aceptar</span>',
+                cancelButtonText: '<span style="font-size:1.1rem;padding:0.5rem 1.5rem;">Cancelar</span>',
+                customClass: {
+                    popup: 'rounded-4',
+                    confirmButton: 'btn btn-dark btn-lg rounded-pill px-4',
+                    cancelButton: 'btn btn-outline-secondary btn-lg rounded-pill px-4'
+                },
+                background: '#f8f9fa',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    $(document).on('keydown.pointSwal', function (ev) {
+                        if (ev.which === 13) { // Enter
+                            ev.preventDefault();
+                            Swal.clickConfirm();
+                        } else if (ev.which === 8 || ev.which === 46) { // Backspace or Delete
+                            ev.preventDefault();
+                            inp.val('');
+                            inp.data('selectedItem', null);
+                            inp.focus();
+                            Swal.close();
+                        }
+                    });
+                },
+                willClose: () => { $(document).off('keydown.pointSwal'); }
+            });
+
+            // ignore if a new cycle started while this swal was open
+            if (inp.data('swalToken') !== swalToken) {
+                inp.data('processing', false);
+                return;
+            }
+
+            if (!swalRes || !swalRes.isConfirmed) {
+                inp.data('selectedItem', null);
+                inp.val('');
+                inp.data('processing', false);
+                return;
+            }
+
+
+            // perform verify AJAX (same body as previous performVerify)
             $.ajax({
                 type: "POST",
                 url: "api/code-obtain.php",
@@ -1205,8 +1462,11 @@ $(document).ready(async function () {
                         html: error,
                         icon: "error"
                     });
+                    inp.data('processing', false);
                 }
             });
+            // ensure processing flag cleared once ajax handled in success path above; for safety set timeout
+            setTimeout(function(){ inp.data('processing', false); }, 1200);
         }
     });
 

@@ -75,4 +75,57 @@ if(isset($_POST['Departament'])){
 
 }
 
+if(isset($_POST['Provider'])){
+    $connObject = new Connection();
+    $conn = $connObject->Connect();
+    $ProviderId = isset($_POST['ProviderId']) ? $_POST['ProviderId'] : '';
+    
+        
+    // VERIFICAR PROVEEDOR
+    $stmt = mysqli_prepare($conn,"SELECT id FROM `providers` WHERE id = ?");
+    mysqli_stmt_bind_param($stmt, "s", $ProviderId);   
+    if(!mysqli_stmt_execute($stmt)){
+        die(json_encode(array(false,'Error: '.mysqli_stmt_error($stmt))));
+    }
+            
+    $result = mysqli_stmt_get_result($stmt);
+    if (mysqli_num_rows($result) != 1) {
+        die(json_encode(array(false,'!Ups. Proveedor No Existe',true)));
+    }
+
+    $stmt = mysqli_prepare($conn,"DELETE FROM `providers` WHERE id = ?");
+    mysqli_stmt_bind_param($stmt, "s", $ProviderId);   
+    if(!mysqli_stmt_execute($stmt)){
+        die(json_encode(array(false,'Error: '.mysqli_stmt_error($stmt))));
+    }
+    die(json_encode(array(true,'Proveedor Eliminado')));
+
+}
+
+if(isset($_POST['ProviderCode'])){
+    $connObject = new Connection();
+    $conn = $connObject->Connect();
+    $codeId = isset($_POST['codeId']) ? $_POST['codeId'] : '';
+    
+    // VERIFICAR CÓDIGO DE PROVEEDOR
+    $stmt = mysqli_prepare($conn,"SELECT id FROM `provider_codes` WHERE id = ?");
+    mysqli_stmt_bind_param($stmt, "s", $codeId);   
+    if(!mysqli_stmt_execute($stmt)){
+        die(json_encode(array(false,'Error: '.mysqli_stmt_error($stmt))));
+    }
+            
+    $result = mysqli_stmt_get_result($stmt);
+    if (mysqli_num_rows($result) != 1) {
+        die(json_encode(array(false,'!Ups. Código de Proveedor No Existe',true)));
+    }
+
+    $stmt = mysqli_prepare($conn,"DELETE FROM `provider_codes` WHERE id = ?");
+    mysqli_stmt_bind_param($stmt, "s", $codeId);   
+    if(!mysqli_stmt_execute($stmt)){
+        die(json_encode(array(false,'Error: '.mysqli_stmt_error($stmt))));
+    }
+    die(json_encode(array(true,'Código de Proveedor Eliminado')));
+
+}
+
 ?>

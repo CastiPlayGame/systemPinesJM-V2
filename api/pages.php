@@ -9,7 +9,7 @@ if (isset($_GET["Storage"])) {
                 updateTable();
                 setInterval(updateTable, updateTime*1000);
                 $(`#prices input`).maskMoney();
-                $(`#priceProvider input`).maskMoney();
+
             });
         </script>
         <div class="row gx-3 mb-4">
@@ -291,7 +291,7 @@ if (isset($_GET["Storage"])) {
                     </div>
 
                     <div class="tab-pane fade" id="nav-storage" role="tabpanel" aria-labelledby="nav-storage-tab" tabindex="2">
-                        <div class="deposits d-flex justify-content-center w-100">
+                        <div class="deposits d-none">
                             <div class="btn-group" role="group" aria-label="Basic radio toggle button group">
                                 ';
                             for ($i = 1; $i <=  $depositsAvailable; $i++) {
@@ -304,28 +304,29 @@ if (isset($_GET["Storage"])) {
                             </div>
                         </div>
 
-                        <div class="row gx-3 mb-3">
-                            <div class="col-9" id="titleDeposits">
+                        <div class="row gx-3 mb-3 align-items-center">
+                            <div class="col-6" id="titleDeposits">
                                 <h5 class="m-0">Cantidad Total: 44984</h5>
                                 <h6 class="m-0">Cantidad Deposito (1): 1520</h6>
+                                <h4 class="m-0 text-success balance-display fw-bold transition-all" id="balanceDisplay" hidden>Balanceado</h4>
                             </div>
-                            <div class="col-3 d-flex justify-content-end">
-                                <button type="button" class="btn btn-dark shadow-none" modal-data-locate="Inventory&Item&Mode=NewPacket" id="modalBtn"><i class="bi bi-plus-lg"></i></button>
+                            <div class="col-6 d-flex justify-content-end gap-2">
+                                <div id="storageBtns">
+                                    <button type="button" class="btn btn-outline-dark shadow-none" id="editBtn" data-mode="edit"><i class="bi bi-pencil-square h5 fw-lighter"></i></button>
+                                    <button type="button" class="btn btn-outline-dark shadow-none" id="buyBtn" data-mode="buy"><i class="bi bi-shop h5 fw-lighter"></i></button>
+                                    <button type="button" class="btn btn-outline-dark shadow-none" id="dischargeBtn" data-mode="discharge"><i class="bi bi-truck-flatbed h5 fw-lighter"></i></button>
+                                </div>
+                                <div id="storageOperationsBtn" hidden>
+                                    <button type="button" class="btn btn-outline-dark shadow-none" id="saveStorageBtn"><i class="bi bi-save h5 fw-lighter"></i> Guardar</button>
+                                    <button type="button" class="btn btn-outline-dark shadow-none" id="cancelStorageBtn"><i class="bi bi-x-lg h5 fw-lighter"></i> Cancelar</button>
+                                    <button type="button" class="btn btn-outline-dark shadow-none border-warning text-warning" id="manualScanBtn" title="Escaneo Manual (Fallback)"><i class="bi bi-qr-code-scan h5 fw-lighter"></i> Manual</button>
+                                </div>
+                                <button type="button" class="btn btn-outline-dark shadow-none ms-3" id="modalBtn" modal-data-locate="Inventory&Item&Mode=NewPacket" modal-size="2"><i class="bi bi-box h5 fw-lighter"></i> Crear Paquete</button>
                             </div>
                         </div>
-                        <table class="ItemList table table-striped table-bordered table-scroll">
-                            <thead>
-                                <tr>
-                                    <th class="col-4" scope="col">Tipo</th>
-                                    <th class="col-3" scope="col">Cantidad</th>
-                                    <th class="col-3" scope="col">Total</th>
-                                    <th class="col-2" scope="col">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody class="table-group-divider" style="max-height: 28rem;">
-                                
-                            </tbody>
-                        </table>     
+                        <div class="ItemList container-fluid p-0 d-flex flex-column gap-2" style="max-height: 70vh; overflow-y: auto;">
+                            
+                        </div>     
                     </div>
                     
                 </div>
@@ -449,11 +450,11 @@ if (isset($_GET["Storage"])) {
         echo '
         <div class="d-flex flex-column w-100 h-100">
             <div class="pb-3 m-0 w-100">
-                <div class="row row-cols-sm-2 row-cols-md-auto">        
-                    <div class="col col-12 col-lg-8">
-                        <h1 class="display-6 titleCategory ps-1" style="color:var(--secondary_text_color)">Cola de Productos</h1>      
+                <div class="row g-2 align-items-center">
+                    <div class="col-12 col-lg-5 d-flex align-items-center">
+                        <h1 class="display-6 titleCategory mb-0 ps-1" style="color:var(--secondary_text_color)">Cola de Productos</h1>
                     </div>
-                    <div class="col col-12 col-lg-4 d-flex align-items-center">
+                    <div class="col-12 col-lg-4">
                         <div class="input-group rounded">
                             <input type="text" class="form-control rounded shadow-none" id="qinput" placeholder="Buscar" aria-label="Buscar" aria-describedby="search-addon" />
                             <span class="input-group-text border-0" id="search-addon">
@@ -463,6 +464,16 @@ if (isset($_GET["Storage"])) {
                             </span>
                         </div>
                     </div>
+                    <div class="col-12 col-lg-3 text-lg-end">
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-outline-danger" id="btnBulkHighPriority" title="Marcar seleccionados como prioridad ALTA">
+                                <i class="bi bi-arrow-up-circle-fill me-1"></i> Alta
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="btnBulkLowPriority" title="Marcar seleccionados como prioridad Baja">
+                                <i class="bi bi-arrow-down-circle-fill me-1"></i> Baja
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
             <h1 id="countdownPoolBatch" class="fw-bold" style="font-size:1.3rem;"></h1>
@@ -470,6 +481,9 @@ if (isset($_GET["Storage"])) {
                 <table id="Pool" class="table table-striped table-scroll small">
                     <thead>
                         <tr>
+                            <th scope="col" class="text-center">
+                                <input type="checkbox" class="form-check-input" id="selectAllJobs" />
+                            </th>
                             <th scope="col">Id</th>
                             <th scope="col">Prioridad</th>
                             <th scope="col">Producto</th>
@@ -533,6 +547,53 @@ if (isset($_GET["DataBase"])) {
                             <th class="col-2 d-none d-sm-none d-md-table-cell" scope="col">Telefono</th>
                             <th class="col-3 d-none d-sm-none d-xl-table-cell d-lg-none" scope="col">Email</th>
                             <th class="col-2 d-none d-lg-table-cell d-md-none" scope="col">Credencial</th>
+                            <th class="col-4 col-md-2" scope="col">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="table-group-divider" style="max-height: 80vh;">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        ';
+    } elseif (isset($_GET["Providers"])) {
+        echo '        
+        <script>
+            $(document).ready(function () {
+                updateTable();
+            });
+        </script>
+        <div class="d-flex flex-column w-100 h-100">
+            <div class="pb-3 m-0 w-100">
+                <div class="row row-cols-sm-2 row-cols-md-auto">        
+                    <div class="col col-8 col-md-12 col-lg-8">
+                        <h1 class="display-6 titleCategory ps-1" style="color:var(--secondary_text_color)">Proveedores</h1>      
+                    </div>
+                    <div class="col col-4 col-md-2 col-lg-1 d-flex align-items-center">
+                        <button type="button" class="btn btn-dark btn-account-primary shadow-none border-0 w-100"
+                        modal-data-locate="DataBase&Providers&Mode=New" modal-size="2" id="modalBtn">Crear</button>
+                    </div>
+                    <div class="col col-12 col-md-10 col-lg-3 d-flex align-items-center">
+                        <div class="input-group rounded">
+                            <input type="text" class="form-control rounded shadow-none" id="qinput" placeholder="Buscar" aria-label="Buscar" aria-describedby="search-addon" />
+                            <span class="input-group-text border-0" id="search-addon">
+                                <button type="button" class="btn shadow-none border-0 w-100">
+                                    <i class="bi bi-search" style="color:var(--secondary_text_color)"></i>
+                                </button>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="table-responsive rounded-top overflow-hidden flex-grow-1 w-100">
+                <table class="table table-striped table-scroll">
+                    <thead>
+                        <tr> 
+                            <th class="col-2 col-md-1" scope="col">ID</th>
+                            <th class="col-6 d-sm-table-cell d-md-none" scope="col">Proveedor</th>
+                            <th class="col-3 d-none d-sm-none d-md-table-cell" scope="col">Plataforma</th>
+                            <th class="col-3 d-none d-sm-none d-xl-table-cell d-lg-none" scope="col">Email</th>
+                            <th class="col-2 d-none d-lg-table-cell d-md-none" scope="col">Contacto</th>
                             <th class="col-4 col-md-2" scope="col">Action</th>
                         </tr>
                     </thead>
@@ -803,6 +864,131 @@ if (isset($_GET["Accounting"])) {
                     <tbody style="height: 85vh;">
                     </tbody>
                 </table>
+            </div>
+        </div>
+        ';
+    }
+}
+
+if (isset($_GET["Purchases"])) {
+    if (isset($_GET["List"])) {
+        echo '        
+        <script>
+            $(document).ready(function () {
+                updateTable();
+            });
+        </script>
+        <div class="d-flex flex-column w-100 h-100">
+            <div class="pb-3 m-0 w-100">
+                <div class="row row-cols-sm-2 row-cols-md-auto">        
+                    <div class="col col-8 col-md-10 col-lg-7">
+                        <h1 class="display-6 titleCategory ps-1" style="color:var(--secondary_text_color)">Compras</h1>      
+                    </div>
+                    <div class="col col-4 col-md-2 col-lg-1 d-flex align-items-center">
+                        <button type="button" class="btn btn-dark btn-account-primary shadow-none border-0 w-100"
+                        modal-data-locate="Purchases&New" modal-size="2" id="modalBtn">Nueva</button>
+                    </div>
+                    <div class="col col-4 col-md-2 col-lg-1 d-flex align-items-center">
+                        <button type="button" class="btn btn-dark btn-account-primary shadow-none border-0 w-100">Filtros</button>
+                    </div>
+                    <div class="col col-8 col-md-10 col-lg-3 d-flex align-items-center">
+                        <div class="input-group rounded">
+                            <input type="text" class="form-control rounded shadow-none" id="qinput" placeholder="Buscar" aria-label="Buscar" aria-describedby="search-addon" />
+                            <span class="input-group-text border-0" id="search-addon">
+                                <button type="button" class="btn shadow-none border-0 w-100">
+                                    <i class="bi bi-search" style="color:var(--secondary_text_color)"></i>
+                                </button>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="table-responsive rounded-top overflow-hidden flex-grow-1 w-100">
+                <table class="table table-striped table-scroll">
+                    <thead>
+                        <tr> 
+                            <th class="col-2 col-md-1" scope="col">ID</th>
+                            <th class="col-3 d-none d-sm-none d-md-table-cell" scope="col">Proveedor</th>
+                            <th class="col-6 d-sm-table-cell d-md-none" scope="col">Compra</th>
+                            <th class="col-2 d-none d-sm-none d-md-table-cell" scope="col">Creado</th>
+                            <th class="col-2 d-none d-sm-none d-lg-table-cell" scope="col">Actualizado</th>
+                            <th class="col-2 d-none d-sm-none d-md-table-cell" scope="col">Total</th>
+                            <th class="col-2 d-none d-sm-none d-lg-table-cell" scope="col">Estado</th>
+                            <th class="col-4 col-md-2" scope="col">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="table-group-divider" style="max-height: 80vh;">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        ';
+    }
+    elseif (isset($_GET["Create"])) {
+        echo '
+        <script>
+            $(document).ready(function () {
+                
+                
+            });
+        </script>
+
+        <div class="d-flex flex-column w-100 h-100">
+            <div class="pb-2 m-0 w-100">
+                <div class="row row-cols-sm-2 row-cols-md-auto">        
+                    <div class="col col-12 col-md-8">
+                        <h2 class="display-6 titleCategory ps-1 titlePoint" style="color:var(--secondary_text_color)">Compra de Productos</h2>      
+                    </div>
+                    <div class="col col-12 col-md-4 col-lg-4 d-flex align-items-center">
+                        <div class="input-group rounded">
+                            <input type="text" class="form-control rounded shadow-none" id="qinput" placeholder="Buscar" aria-label="Buscar" aria-describedby="search-addon" />
+                            <span class="input-group-text border-0" id="search-addon">
+                                <button type="button" class="btn shadow-none border-0 w-100">
+                                    <i class="bi bi-search" style="color:var(--secondary_text_color)"></i>
+                                </button>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="table-responsive rounded-top overflow-hidden flex-grow-1 w-100">
+                <table class="CartList table table-scroll small">
+                    <thead>
+                        <tr>
+                            <th class="col-stv-1" scope="col"></th>
+                            <th class="col-stv-2" scope="col">Id</th>
+                            <th class="col-stv-2" scope="col">Inventario</th>
+                            <th class="col-stv-2" scope="col">En Camino</th>
+                            <th class="col-stv-2" scope="col">Cantidad</th>
+                            <th class="col-stv-2" scope="col">Precio</th>
+                            <th class="col-stv-2" scope="col">Costo</th>
+                            <th class="col-stv-2" scope="col">Total</th>
+                            <th class="col-stv-2" scope="col">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="" style="height: 70vh;">
+                    </tbody>
+                </table>
+            </div>
+            <div class="d-flex justify-content-center">
+                <div class="row d-flex align-items-center w-55 rounded-2" style="height: 5.5rem; background: var(--primary_color)"> 
+                    <div class="col-9">
+                        <div class="d-flex flex-column">
+                            <h6 class="d-inline-block text-truncate text-light" style="max-width: 95%;" id="lblProviderName"></h6>
+                            <h6 class="text-light m-0" id="lblBuyTotal">Total: 0</h6>
+                            <h6 class="text-light m-0" id="lblBuyCost">Costo: 0.00$</h6>
+                        </div>
+                    </div>
+
+                    <div class="col-3 d-flex justify-content-end">
+                        <button type="button" class="btn btn-light me-2" id="clearList">
+                            <i class="bi bi-file-earmark-excel h4"></i>
+                        </button>
+                        <button type="button" class="btn btn-light buyBtn" id="completBuy" disabled>
+                            <i class="bi bi-send-slash h4"></i>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
         ';

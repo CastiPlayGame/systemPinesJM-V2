@@ -447,7 +447,7 @@ if (isset($_POST['Item'])) {
             "name" => $provider["name"] ?? "" ,
             "contact" => $provider["contact"] ?? "",
             "cost" => $provider["cost"] ?? "",
-            "summary" => $provider["summary"]
+            "summary" => $provider["summary"] ?? []
         ));
 
 
@@ -945,3 +945,300 @@ if(isset($_POST['FFmpeg'])){
         echo json_encode(['success' => false, 'error' => 'Error en la subida del archivo: ' . $uploadError]);
     }
 }
+
+if (isset($_POST['Provider'])) {
+    if (isset($_POST['Edit'])) {
+        $connObject = new Connection();
+        $conn = $connObject->Connect();
+
+        $id = $_POST['id'];
+        $name = $_POST['name'];
+        $platform = $_POST['platform'];
+        $platform_other = $_POST['platform_other'];
+        $email = $_POST['email'];
+        $contact = $_POST['contact'];
+
+        // If platform is "other", use platform_other value
+        if ($platform === "other") {
+            $platform = $platform_other;
+        }
+
+        // Check if provider exists
+        $stmt = mysqli_prepare($conn, "SELECT id FROM `providers` WHERE id = ?");
+        mysqli_stmt_bind_param($stmt, "s", $id);
+        if (!mysqli_stmt_execute($stmt)) {
+            die(json_encode(array(false, 'Error: ' . mysqli_stmt_error($stmt))));
+        }
+
+        $result = mysqli_stmt_get_result($stmt);
+        if (mysqli_num_rows($result) != 1) {
+            die(json_encode(array(false, '!Ups. Proveedor No Existe')));
+        }
+
+        // Check for duplicates (excluding current provider)
+        $stmt = mysqli_prepare($conn, "SELECT id FROM `providers` WHERE (name = ? OR email = ?) AND id != ?");
+        mysqli_stmt_bind_param($stmt, "sss", $name, $email, $id);
+        if (!mysqli_stmt_execute($stmt)) {
+            die(json_encode(array(false, 'Error: ' . mysqli_stmt_error($stmt))));
+        }
+
+        $result = mysqli_stmt_get_result($stmt);
+        if (mysqli_num_rows($result) > 0) {
+            die(json_encode(array(false, 'Ya existe un proveedor con ese nombre o email')));
+        }
+
+        // Update provider
+        $sql = "UPDATE `providers` SET `name`=?, `plaftorm`=?, `platorm_other`=?, `email`=?, `contact`=? WHERE id=?";
+        $stmt = mysqli_prepare($conn, $sql);
+        mysqli_stmt_bind_param($stmt, "ssssss", $name, $platform, $platform_other, $email, $contact, $id);
+        
+        if (!mysqli_stmt_execute($stmt)) {
+            die(json_encode(array(false, 'Error: ' . mysqli_stmt_error($stmt))));
+        }
+        
+        die(json_encode(array(true, 'Proveedor Actualizado')));
+    }
+}
+
+
+
+
+// Edit provider code (code, costs JSON, notes)
+if (isset($_POST['ProviderCode'])) {
+    if (isset($_POST['Edit'])) {
+        $connObject = new Connection();
+        $conn = $connObject->Connect();
+
+        $id = $_POST['id'];
+        $providerCode = isset($_POST['providerCode']) ? $_POST['providerCode'] : null;
+        $notes = isset($_POST['notes']) ? $_POST['notes'] : null;
+        $costPayload = isset($_POST['cost']) ? $_POST['cost'] : null;
+
+        // Check provider code record exists
+        $stmt = mysqli_prepare($conn, "SELECT id FROM `provider_codes` WHERE id = ?");
+        mysqli_stmt_bind_param($stmt, "s", $id);
+        if (!mysqli_stmt_execute($stmt)) {
+            die(json_encode(array(false, 'Error: ' . mysqli_stmt_error($stmt))));
+        }
+        $result = mysqli_stmt_get_result($stmt);
+        if (mysqli_num_rows($result) != 1) {
+            die(json_encode(array(false, '!Ups. Código de proveedor no existe')));
+        }
+
+        // Normalize costs JSON
+        $costsJson = null;
+        if (!empty($costPayload)) {
+            $decoded = json_decode($costPayload, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $initial = isset($decoded['initial']) ? $decoded['initial'] : null;
+                $additionals = isset($decoded['additionals']) && is_array($decoded['additionals']) ? $decoded['additionals'] : [];
+                $costsJson = json_encode(['initial' => $initial, 'additionals' => $additionals]);
+            } else {
+                $costsJson = json_encode(['initial' => $costPayload, 'additionals' => []]);
+            }
+        } else {
+            $costsJson = json_encode(['initial' => null, 'additionals' => []]);
+        }
+
+        // Build dynamic update
+        $fields = [];
+        $params = [];
+        $types = '';
+        if (!is_null($providerCode)) {
+            $fields[] = "provider_code = ?";
+            $params[] = $providerCode;
+            $types .= 's';
+        }
+        if (!is_null($notes)) {
+            $fields[] = "notes = ?";
+            $params[] = $notes;
+            $types .= 's';
+        }
+        if (!is_null($costsJson)) {
+            $fields[] = "costs = ?";
+            $params[] = $costsJson;
+            $types .= 's';
+        }
+
+        if (empty($fields)) {
+            die(json_encode(array(true, 'Sin cambios')));
+        }
+
+        $params[] = $id;
+        $types .= 's';
+        $sql = "UPDATE `provider_codes` SET " . implode(', ', $fields) . ", updated_at = NOW() WHERE id = ?";
+        $stmt = mysqli_prepare($conn, $sql);
+        mysqli_stmt_bind_param($stmt, $types, ...$params);
+        if (!mysqli_stmt_execute($stmt)) {
+            die(json_encode(array(false, 'Error: ' . mysqli_stmt_error($stmt))));
+        }
+
+        die(json_encode(array(true, 'Código de proveedor actualizado')));
+    }
+}
+
+if (isset($_POST['Purchases'])) {
+    if (isset($_POST['ChangeStatus'])) {
+             $connObject = new Connection();
+        $conn = $connObject->Connect();
+
+        $uuid = $_POST['uuid'] ?? '';
+        $newStatus = $_POST['status'] ?? '';
+
+        // Validar status
+        $validStatuses = ['pending', 'shipped', 'received', 'completed'];
+        if (!in_array($newStatus, $validStatuses)) {
+            die(json_encode(array(false, 'Estado inválido')));
+        }
+
+        $sql = "UPDATE `provider_purchases` SET `status` = ? WHERE `uuid` = ?";
+        $stmt = mysqli_prepare($conn, $sql);
+        mysqli_stmt_bind_param($stmt, "ss", $newStatus, $uuid);
+        
+        if (!mysqli_stmt_execute($stmt)) {
+            die(json_encode(array(false, 'Error: ' . mysqli_stmt_error($stmt))));
+        }
+
+        if (mysqli_stmt_affected_rows($stmt) > 0) {
+            die(json_encode(array(true, 'Estado actualizado')));
+        } else {
+            die(json_encode(array(false, 'No se encontró la compra')));
+        }
+    }
+
+    if (isset($_POST['ToggleProductClosed'])) {
+        $connObject = new Connection();
+        $conn = $connObject->Connect();
+
+        $uuid = $_POST['uuid'] ?? '';
+        $productCode = $_POST['code'] ?? '';
+        $isClosed = isset($_POST['is_closed']) && $_POST['is_closed'] === 'true';
+
+        // First get the current purchase to validate status and get summary
+        $sql = "SELECT `status`, `summary` FROM `provider_purchases` WHERE `uuid` = ?";
+        $stmt = mysqli_prepare($conn, $sql);
+        mysqli_stmt_bind_param($stmt, "s", $uuid);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+
+        if (mysqli_num_rows($result) == 0) {
+            die(json_encode(array(false, 'No se encontró la compra')));
+        }
+
+        $purchase = mysqli_fetch_assoc($result);
+
+        // Only allow changes when status is 'received'
+        if ($purchase['status'] !== 'received') {
+            die(json_encode(array(false, 'Solo se puede cambiar cuando el estado es "Recibido"')));
+        }
+
+        // Parse and update summary
+        $summary = json_decode($purchase['summary'], true);
+        if (!is_array($summary)) {
+            $summary = [];
+        }
+
+        $productFound = false;
+        foreach ($summary as &$item) {
+            if ($item['code'] === $productCode) {
+                $item['is_closed'] = $isClosed;
+                $productFound = true;
+                break;
+            }
+        }
+
+        // If product not found in summary, add it
+        if (!$productFound) {
+            $summary[] = [
+                'code' => $productCode,
+                'shipped_amount' => 0,
+                'is_closed' => $isClosed
+            ];
+        }
+
+        // Update the summary in database
+        $newSummary = json_encode($summary);
+        $sql = "UPDATE `provider_purchases` SET `summary` = ?, `updated_at` = NOW() WHERE `uuid` = ?";
+        $stmt = mysqli_prepare($conn, $sql);
+        mysqli_stmt_bind_param($stmt, "ss", $newSummary, $uuid);
+        
+        if (!mysqli_stmt_execute($stmt)) {
+            die(json_encode(array(false, 'Error: ' . mysqli_stmt_error($stmt))));
+        }
+
+        die(json_encode(array(true, 'Estado del producto actualizado')));
+    }
+    if (isset($_POST['AddToProductShipped'])) {
+        $connObject = new Connection();
+        $conn = $connObject->Connect();
+
+        $uuid = $_POST['uuid'] ?? '';
+        $productCode = $_POST['code'] ?? '';
+        $quantityToAdd = intval($_POST['quantity'] ?? 0);
+        $shouldClose = isset($_POST['close_purchase']) && $_POST['close_purchase'] === 'true';
+
+        // First get the current purchase to validate status and get summary
+        $sql = "SELECT `status`, `summary` FROM `provider_purchases` WHERE `uuid` = ?";
+        $stmt = mysqli_prepare($conn, $sql);
+        mysqli_stmt_bind_param($stmt, "s", $uuid);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+
+        if (mysqli_num_rows($result) == 0) {
+            die(json_encode(array(false, 'No se encontró la compra')));
+        }
+
+        $purchase = mysqli_fetch_assoc($result);
+
+        // Only allow changes when status is 'received'
+        if ($purchase['status'] !== 'received') {
+            die(json_encode(array(false, 'Solo se puede actualizar cuando el estado es "Recibido"')));
+        }
+
+        // Parse and update summary
+        $summary = json_decode($purchase['summary'], true);
+        if (!is_array($summary)) {
+            $summary = [];
+        }
+
+        $productFound = false;
+        foreach ($summary as &$item) {
+            if (isset($item['code']) && $item['code'] === $productCode) {
+                // Add to shipped amount
+                $currentShipped = intval($item['shipped_amount'] ?? 0);
+                $item['shipped_amount'] = $currentShipped + $quantityToAdd;
+                
+                // Update is_closed if requested
+                if ($shouldClose) {
+                    $item['is_closed'] = true;
+                }
+                
+                $productFound = true;
+                break;
+            }
+        }
+
+        // If product not found in summary, add it (should exist typically if ordered, but handle gracefully)
+        if (!$productFound) {
+            $summary[] = [
+                'code' => $productCode,
+                'shipped_amount' => $quantityToAdd,
+                'is_closed' => $shouldClose
+            ];
+        }
+
+        // Update the summary in database
+        $newSummary = json_encode($summary);
+        $sql = "UPDATE `provider_purchases` SET `summary` = ?, `updated_at` = NOW() WHERE `uuid` = ?";
+        $stmt = mysqli_prepare($conn, $sql);
+        mysqli_stmt_bind_param($stmt, "ss", $newSummary, $uuid);
+        
+        if (!mysqli_stmt_execute($stmt)) {
+            die(json_encode(array(false, 'Error: ' . mysqli_stmt_error($stmt))));
+        }
+
+        die(json_encode(array(true, 'Cantidad recibida actualizada')));
+    }
+}
+
+?>

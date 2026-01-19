@@ -275,3 +275,160 @@ tr.highlighted {
 tr.ready {
     background-color: #9ecfaa !important;
 }
+
+/* Alternar colores de filas en la tabla de compras */
+.CartList tbody tr.row-odd {
+    background-color: #ffffff00;
+}
+
+.CartList tbody tr.row-even {
+    background-color: #f8f9fa;
+}
+
+.CartList tbody tr.row-odd .charts-cell {
+    background-color: #ffffff00;
+    padding: 20px;
+}
+
+.CartList tbody tr.row-even .charts-cell {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    padding: 20px;
+}
+
+/* Animaciones para charts */
+.charts-row {
+    overflow: hidden;
+    transform-origin: top;
+}
+
+.charts-row.expanding {
+    display: table-row !important;
+    animation: rowSlideDown 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.charts-row.collapsing {
+    animation: rowSlideUp 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.charts-cell {
+    overflow: hidden;
+    transform-origin: top;
+    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.charts-row.expanding .charts-cell {
+    animation: cellExpand 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.charts-row.collapsing .charts-cell {
+    animation: cellCollapse 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.charts-container {
+    animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    animation-delay: 0.1s;
+    transform-origin: top center;
+}
+
+.chart-box {
+    opacity: 0;
+    animation: fadeInScale 0.5s ease-out forwards;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.chart-box:nth-child(1) {
+    animation-delay: 0.1s;
+}
+
+.chart-box:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.chart-box:nth-child(3) {
+    animation-delay: 0.3s;
+}
+
+.chart-box:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15) !important;
+}
+
+@keyframes rowSlideDown {
+    0% {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes rowSlideUp {
+    0% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+}
+
+@keyframes cellExpand {
+    0% {
+        opacity: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        transform: scaleY(0.8);
+    }
+
+    100% {
+        opacity: 1;
+        padding-top: 20px;
+        padding-bottom: 20px;
+        transform: scaleY(1);
+    }
+}
+
+@keyframes cellCollapse {
+    0% {
+        opacity: 1;
+        padding-top: 20px;
+        padding-bottom: 20px;
+        transform: scaleY(1);
+    }
+
+    100% {
+        opacity: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        transform: scaleY(0.8);
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeInScale {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
