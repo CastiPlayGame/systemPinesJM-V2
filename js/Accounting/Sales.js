@@ -235,7 +235,7 @@ $(document).ready(function () {
     $(document).on('click', "#passToNote", function () {
         const vars = $(this)
         const motor = $(document).find('input[name="motorBase"]:checked').val();
-        var dataByMotor = (motor == 'chrystal') ? ["code-new.php", "Accounting&Note&chrystal&uuid=" + vars.attr('buy-id')] : (motor == 'pinesjm') ? ["code-edit.php", "Movements&ToNote&uuid=" + vars.attr('buy-id') + "&nr=" + $('#nrdocument').val()] : "";
+        var dataByMotor = (motor == 'chrystal') ? ["code-new.php", "Accounting&Note&chrystal&uuid=" + vars.attr('buy-id')] : (motor == 'pinesjm') ? ["code-edit.php", "Movements&ToNote&uuid=" + vars.attr('buy-id')] : "";
 
         $.ajax({
             beforeSend: function () {

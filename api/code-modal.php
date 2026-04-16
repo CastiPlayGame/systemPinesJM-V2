@@ -1670,6 +1670,15 @@ if (isset($_POST['ShowErrors'])) {
 }
 
 if (isset($_POST['FinishBuy'])) {
+    // Obtener el próximo número de nota desde la tabla sequences
+    $connSeq = (new Connection())->Connect();
+    $seqResult = mysqli_query($connSeq, "SELECT current_value FROM sequences WHERE name = 'nr_type_1' LIMIT 1");
+    $nextNr = 1;
+    if ($seqResult && mysqli_num_rows($seqResult) > 0) {
+        $seqRow = mysqli_fetch_assoc($seqResult);
+        $nextNr = intval($seqRow['current_value']) + 1;
+    }
+
     $mode = ["", "", "checked"];
     if ($_POST['mode'] == 1) {
         $mode[0] = '
@@ -1724,8 +1733,12 @@ if (isset($_POST['FinishBuy'])) {
     echo '
     <script>
     $(document).ready(function () {
-        $(document).find(".pinesjm").hide();
-        $(document).find(".chrystal").hide();
+        $(".tab-motor").hide();
+        // Mostrar la pestaña del motor seleccionado
+        var selectedMotor = $("input[name=\'motorBase\']:checked").val();
+        if (selectedMotor) {
+            $("." + selectedMotor).show();
+        }
         $("#nameClient").text(`${Session.val.client[2]}`)
         var total = 0;
         $.each(Session.val.items, function (a, b) {
@@ -1768,16 +1781,16 @@ if (isset($_POST['FinishBuy'])) {
                     <div class="card-body">
                         <h6 class="card-subtitle text-muted mb-3">Selección de Plataforma</h6>
                         <div class="btn-group w-100" role="group" aria-label="Plataforma de Venta">
-                            ' . $mode[0] . '
-                            
-                            <input type="radio" class="btn-check" value="chrystal" name="motorBase" id="option5" autocomplete="off" ' . $mode[2] . '>
-                            <label class="btn btn-outline-dark shadow-none" for="option5">
-                                <i class="bi bi-gem me-2"></i>Chrystal
-                            </label>
-
-                            <input type="radio" class="btn-check" value="pinesjm" name="motorBase" id="option6" autocomplete="off">
+                            <input type="radio" class="btn-check" value="pinesjm" name="motorBase" id="option6" autocomplete="off" ' . $mode[2] . '>
                             <label class="btn btn-outline-dark shadow-none" for="option6">
                                 <i class="bi bi-tree me-2"></i>PinesJM
+                            </label>
+
+                            ' . $mode[0] . '
+                            
+                            <input type="radio" class="btn-check" value="chrystal" name="motorBase" id="option5" autocomplete="off" disabled style="display: none;">
+                            <label class="btn btn-outline-dark shadow-none" for="option5" style="display: none;">
+                                <i class="bi bi-gem me-2"></i>Chrystal
                             </label>
                         </div>
                     </div>
@@ -1793,19 +1806,16 @@ if (isset($_POST['FinishBuy'])) {
                     <h5 class="card-title mb-3" style="color:var(--primary_color)">
                         <i class="bi bi-tree me-2"></i>Detalles PinesJM
                     </h5>
+                    <div class="alert alert-success mb-3" role="alert">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-hash me-2 fs-4"></i>
+                            <div>
+                                <strong>Nota de Entrega</strong> — El próximo número de nota será: <span class="badge bg-dark fs-6">' . $nextNr . '</span>
+                            </div>
+                        </div>
+                    </div>
                     <div class="row g-3">
-                        <div class="col-md-4">
-                            <h6 class="form-label">Tipo de Documento (*)</h6>
-                            <select class="form-select" aria-label="Tipo de Documento" id="typedocument">
-                                <option value="0">Presupuesto</option>
-                                <option value="1">Nota de Entrega</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <h6 class="form-label">Nr. de Documento (*)</h6>
-                            <input type="text" class="form-control" id="nrdocument" oninput="numberInput(this)" autocomplete="off">
-                        </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <h6 class="form-label">Crédito</h6>
                             <div class="input-group">
                                 <input type="text" class="form-control" placeholder="Auto" oninput="numberInput(this)" id="JMcredit" autocomplete="off">
@@ -1828,7 +1838,7 @@ if (isset($_POST['FinishBuy'])) {
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-12">
                             <h6 class="form-label">Comentarios</h6>
                             <input type="text" class="form-control" placeholder="Vacío" id="JMcoment" autocomplete="off">
                         </div>
@@ -1885,108 +1895,60 @@ if (isset($_POST['FinishBuy'])) {
         </div>
     </div>
 
-    <div id="verifyList" class="modal-body p-4" hidden>
-        <div class="row g-4 mb-4">
-                <div class="col-12 grid-container" style="display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto auto; gap: 1rem;">
-                    
-                    <div style="grid-column: 1; grid-row: 1;">
-                        <div class="text-center mb-4">
-                            <h3 class="fw-bold" style="color:var(--primary_color)">Paso de Verificación</h3>
-                            <h5 class="text-secondary" id="codePassed">Productos Revisados</h5>
-                            <hr class="mx-auto" style="width: 50%;">
-                        </div>
-                    </div>
+    <div id="verifyList" class="modal-body p-0 d-flex flex-column" hidden style="background:#f1f5f9;min-height:0;flex:1 1 auto;">
 
-                    <div style="grid-column: 2; grid-row: 1 / span 2; display: flex; justify-content: center; align-items: center;">
-                        <img src="./resc/img/No-Image-Placeholder.png" 
-                            class="rounded shadow-sm img-thumbnail" 
-                            alt="Imagen del producto" 
-                            style="width: 230px; height: 230px; object-fit: contain;">
-                    </div>
+        <!-- Top Scanner Bar -->
+        <div style="background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);padding:14px 20px 16px;">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
 
-                    <div style="grid-column: 1; grid-row: 2;">
-                        <div class="input-group input-group-lg">
-                            <span class="input-group-text bg-light">
-                                <i class="bi bi-upc-scan"></i>
-                            </span>
-                            <input type="text" 
-                                class="form-control form-control-lg shadow-sm" 
-                                id="codeV" 
-                                placeholder="Ingresa Código" 
-                                oninput="this.value = this.value.toUpperCase()">
-                        </div>
+                <div style="min-width:160px;">
+                    <div class="fw-bold text-white mb-0" style="font-size:.95rem;letter-spacing:.01em;">
+                        <i class="bi bi-patch-check me-1" style="color:#60a5fa;"></i>Verificación de Pasillo
+                    </div>
+                    <div style="font-size:.7rem;color:#94a3b8;margin-top:2px;">Escanea los productos para confirmar envío</div>
+                </div>
+
+                <div class="flex-grow-1" style="max-width:520px;margin:0 auto;">
+                    <div class="input-group" style="box-shadow:0 2px 12px rgba(0,0,0,.3);">
+                        <span class="input-group-text" style="background:rgba(96,165,250,.12);border:1.5px solid rgba(96,165,250,.3);border-right:none;color:#60a5fa;font-size:1rem;">
+                            <i class="bi bi-upc-scan"></i>
+                        </span>
+                        <input type="text" id="codeV"
+                               class="form-control"
+                               placeholder="Escanea el código... (escribe SKIP para omitir)"
+                               oninput="this.value = this.value.toUpperCase()"
+                               autocomplete="off"
+                               style="background:rgba(255,255,255,.07);border:1.5px solid rgba(96,165,250,.3);border-left:none;color:#f8fafc;font-size:.92rem;caret-color:#60a5fa;"
+                               onfocus="this.style.background=\'rgba(255,255,255,.13)\';this.style.outline=\'none\';"
+                               onblur="this.style.background=\'rgba(255,255,255,.07)\';this.style.boxShadow=\'\';">
                     </div>
                 </div>
-            </div>
 
-        <div class="row g-4">
-            <div class="col-md-5">
-                <div class="card shadow-sm">
-                    <div class="card-body">
-                        <h5 class="card-title mb-3" style="color:var(--primary_color)">
-                            <i class="bi bi-info-circle me-2"></i>
-                            Información del Producto
-                        </h5>
-                        <div class="mb-3">
-                            <h6 class="fw-bold" id="quantityTotalV">
-                                <i class="bi bi-123 me-2"></i>
-                                Cantidad Requerida:
-                            </h6>
-                            <h6 class="fw-bold" id="depositV">
-                                <i class="bi bi-building me-2"></i>
-                                Depósito:
-                            </h6>
-                        </div>
-                        <h6 class="text-muted text-center mb-3">
-                            <i class="bi bi-box me-2"></i>Paquetes
-                        </h6>
-                        <div class="row" id="quantityV">
-                            <!-- Contenido dinámico -->
-                        </div>
-                    </div>
+                <div class="text-center" style="min-width:72px;">
+                    <div class="fw-bold text-white" id="codePassed" style="font-size:1.55rem;line-height:1.1;font-variant-numeric:tabular-nums;">0 / 0</div>
+                    <div style="font-size:.6rem;color:#64748b;letter-spacing:.08em;text-transform:uppercase;margin-top:1px;">Revisados</div>
                 </div>
-            </div>
 
-            <div class="col-md-7">
-                <div class="card shadow-sm">
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-hover mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th class="px-3">
-                                            <i class="bi bi-hash me-2"></i>Código
-                                        </th>
-                                        <th class="px-3">
-                                            <i class="bi bi-flag me-2"></i>Estado
-                                        </th>
-                                        <th class="px-3">
-                                            <i class="bi bi-gear me-2"></i>Acciones
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody class="table-group-divider" 
-                                    style="max-height: 25vh; overflow-y: auto;">
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
+
+        <!-- Product Grid -->
+        <div class="flex-grow-1 p-3" style="overflow-y:auto;">
+            <div class="row g-2" id="verifyGrid" style="align-content:flex-start;"></div>
+        </div>
+
     </div>
 
 
     </div>
-     <div class="modal-footer bg-light">
-        <button type="button" class="btn btn-outline-secondary" id="backToMain" hidden>
-            <i class="bi bi-arrow-left me-2"></i>Atrás
+    <div class="modal-footer" style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:8px 16px;gap:6px;">
+        <button type="button" class="btn btn-sm rounded-pill px-3" id="backToMain" hidden
+                style="border:1.5px solid #cbd5e1;color:#475569;background:transparent;">
+            <i class="bi bi-arrow-left me-1"></i>Atrás
         </button>
-        <button type="button" class="btn btn-outline-dark" id="skipVerify" hidden>
-            <i class="bi bi-skip-forward me-2"></i>Omitir
-        </button>
-        <button type="button" class="btn btn-dark" id="finishBuy" step="0">
-            <i class="bi bi-check-circle me-2"></i><span>Guardar</span>
+        <button type="button" class="btn btn-sm rounded-pill px-4 text-white" id="finishBuy" step="0"
+                style="background:#1e293b;border:none;">
+            <i class="bi bi-check-circle me-1"></i><span>Siguiente</span>
         </button>
     </div>';
 }
@@ -2520,10 +2482,18 @@ if (isset($_POST['Sales'])) {
                     $Cost += ($quantity * $packs) * $y['price'];
                 }
             }
+            // Obtener el próximo número de nota
+            $seqResult2 = mysqli_query($conn, "SELECT current_value FROM sequences WHERE name = 'nr_type_1' LIMIT 1");
+            $nextNr2 = 1;
+            if ($seqResult2 && mysqli_num_rows($seqResult2) > 0) {
+                $seqRow2 = mysqli_fetch_assoc($seqResult2);
+                $nextNr2 = intval($seqRow2['current_value']) + 1;
+            }
+
             echo '
             <script>
             $(document).ready(function () {
-                $(document).find(".pinesjm").hide();
+                $(document).find(".chrystal").hide();
             });
             </script>
             <div class="modal-header">
@@ -2538,24 +2508,25 @@ if (isset($_POST['Sales'])) {
 
 
                 <div class="d-flex justify-content-evenly">
-                    <input type="radio" class="btn-check" value="chrystal" name="motorBase" id="option5" autocomplete="off" checked>
-                    <label class="btn btn-outline-dark shadow-none" for="option5">Chrystal</label>
-                    
-                    <input type="radio" class="btn-check" value="pinesjm" name="motorBase" id="option6" autocomplete="off">
+                    <input type="radio" class="btn-check" value="pinesjm" name="motorBase" id="option6" autocomplete="off" checked>
                     <label class="btn btn-outline-dark shadow-none" for="option6">PinesJM</label>
+
+                    <input type="radio" class="btn-check" value="chrystal" name="motorBase" id="option5" autocomplete="off" disabled style="display: none;">
+                    <label class="btn btn-outline-dark shadow-none" for="option5" style="display: none;">Chrystal</label>
                 </div>
                 
                 
                 <div class="tab-motor pinesjm mt-2">
-                    <div class="">
-                        <h6 class="form-label">Nr. de Nota</h6>
-                        <input type="text" class="form-control" id="nrdocument" oninput="numberInput(this)" autocomplete="off">
-                    </div>
-                    <div class="alert alert-info m-0" role="alert">
-                        <h5 class="mb-1">OJO:</h5>Esto No Realizara Ninguna Accion En Chrystal,Es Obligatorio El Nr De Nota
+                    <div class="alert alert-success m-0" role="alert">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-hash me-2 fs-4"></i>
+                            <div>
+                                <strong>Nota de Entrega</strong> — El próximo número de nota será: <span class="badge bg-dark fs-6">' . $nextNr2 . '</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="tab-motor chrystal mt-2">
+                <div class="tab-motor chrystal mt-2" style="display:none;">
                     <div class="alert alert-info m-0" role="alert">
                         <h5 class="mb-1">OJO:</h5>Este Presupuesto Se Va A Realizar En Chrystal Como Nota 
                     </div>

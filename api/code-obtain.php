@@ -992,6 +992,55 @@ if (isset($_POST['Accounting'])) {
                 die(json_encode(["success" => true, "find" => false]));
             }
         }
+        if (isset($_POST['Reserved'])) {
+            $connObject = new Connection();
+            $conn = $connObject->Connect();
+
+            $itemId = mysqli_real_escape_string($conn, $_POST['item_id']);
+            $depo   = mysqli_real_escape_string($conn, $_POST['depo']);
+
+            $sql = "SELECT `id`,
+                           CAST(AES_DECRYPT(`info`,'" . CLAVE_AES . "') AS CHAR) AS info,
+                           `buy`,
+                           JSON_UNQUOTE(JSON_EXTRACT(`advanced`,'$.additionals.name')) AS order_name
+                    FROM `retainedpurchases`
+                    WHERE NOT JSON_EXTRACT(`status`,CONCAT(\"$[\",JSON_LENGTH(`status`)-1,\"].event\")) IN (3,4)";
+            $result = mysqli_query($conn, $sql);
+
+            $reserved = [];
+            while ($row = mysqli_fetch_assoc($result)) {
+                $buy = json_decode($row['buy'], true);
+                if (!$buy) continue;
+
+                $infoArr    = json_decode($row['info'], true);
+                $clientName = is_array($infoArr) && isset($infoArr[2]) ? $infoArr[2] : 'Sin cliente';
+                $orderName  = $row['order_name'] ?: ('Pedido #' . substr($row['id'], 0, 8));
+
+                foreach ($buy as $item) {
+                    if (
+                        isset($item['code'], $item['depo'], $item['packs']) &&
+                        $item['code'] === $itemId &&
+                        (string)$item['depo'] === (string)$depo
+                    ) {
+                        foreach ($item['packs'] as $packSize => $qty) {
+                            $key = (string)$packSize;
+                            if (!isset($reserved[$key])) {
+                                $reserved[$key] = ['total' => 0, 'orders' => []];
+                            }
+                            $reserved[$key]['total'] += intval($qty);
+                            $reserved[$key]['orders'][] = [
+                                'id'     => $row['id'],
+                                'name'   => $orderName,
+                                'client' => $clientName,
+                                'qty'    => intval($qty)
+                            ];
+                        }
+                    }
+                }
+            }
+
+            die(json_encode($reserved));
+        }
     }
 }
 

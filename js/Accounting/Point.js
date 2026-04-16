@@ -39,7 +39,14 @@ class ResetAndStart {
         this.resetStateVariables();
     }
     clearVerifyItems() {
-        verifyItemsPass = [];
+        if(Session && Session.val && Session.val.items) {
+            $.each(Session.val.items, function (key, item) {
+                if (item && item.scannedInfo) {
+                    delete item.scannedInfo;
+                }
+            });
+            Session.Save();
+        }
     }
 
     clearFooter() {
@@ -654,7 +661,7 @@ class Core {
             additionals.discount[1] = $(document).find('#JMdiscountPercent').is(':checked');
             additionals.credit = $(document).find('input#JMcredit').val();
             additionals.coment = $(document).find('input#JMcoment').val();
-            dataByMotor[1] = "Accounting&Make&pinesjm&nr=" + $('#nrdocument').val() + "&type=" + $('#typedocument option:selected').val() + "&additionals=" + JSON.stringify(additionals) + "&old=" + JSON.stringify(oldList) + "&list=" + JSON.stringify(Session.val) + "&uuid=" + new $_SESSION("modePoint").val['uuid'];
+            dataByMotor[1] = "Accounting&Make&pinesjm&additionals=" + JSON.stringify(additionals) + "&old=" + JSON.stringify(oldList) + "&list=" + JSON.stringify(Session.val) + "&uuid=" + new $_SESSION("modePoint").val['uuid'];
         } else if (motor == 'pedding') {
             dataByMotor[0] = "code-edit.php";
             dataByMotor[1] = "Point&retainedSave&coment=" + $('textarea#coment ').val() + "&status=" + $('#status option:selected').val() + "&old=" + JSON.stringify(oldList) + "&uuid=" + new $_SESSION("modePoint").val['uuid'] + "&list=" + JSON.stringify(Session.val);
@@ -897,13 +904,6 @@ class VerifyPass {
         let id;
         let base;
         let depo;
-        let imgUrl = "";
-
-        try {
-            imgUrl = await this.getImage(code);
-        } catch (error) {
-            find = -2;
-        }
 
         $.each(Session.val.items, function (k, v) {
             if (code == v["code"]) {
@@ -932,20 +932,10 @@ class VerifyPass {
         });
 
         switch (find) {
-            case -2:
-                return {
-                    "Reason": "noExist",
-                };
             case -1:
-                return {
-                    "Reason": "noFound",
-                    "imgUrl": imgUrl
-                };
+                return { "Reason": "noFound" };
             case 0:
-                return {
-                    "Reason": "alreadyCheck",
-                    "imgUrl": imgUrl
-                };
+                return { "Reason": "alreadyCheck" };
             case 1:
                 return {
                     "Reason": "found",
@@ -954,8 +944,7 @@ class VerifyPass {
                     "ttspq": packstts,
                     "id": id,
                     "base": base,
-                    "dp": depo,
-                    "imgUrl": imgUrl
+                    "dp": depo
                 };
             default:
                 return { "Reason": "unknownError" };
@@ -963,58 +952,188 @@ class VerifyPass {
     }
 
     updateVerify() {
-        // Verificar y limpiar items que ya no existen en Session
-        verifyItemsPass = verifyItemsPass.filter(passedItem => {
-            const [code, depo] = passedItem.split('_');
-            return Object.values(Session.val.items).some(item =>
-                item.code === code && item.depo === depo
-            );
+        let fullyVerifiedCount = 0;
+        let totalItems = Object.keys(Session.val.items).length;
+
+        $.each(Session.val.items, function (key, item) {
+            if (item.scannedInfo && item.scannedInfo.verified === true) {
+                fullyVerifiedCount++;
+            }
         });
 
-        const cont = $(document).find("#verifyList")
-        cont.find("#codePassed").html("Productos Revisados<br>" + verifyItemsPass.length + " / " + Object.keys(Session.val.items).length);
-        if (verifyItemsPass.length == Object.keys(Session.val.items).length) {
+        const cont = $(document).find("#verifyList");
+        cont.find("#codePassed").html(fullyVerifiedCount + " / " + totalItems);
+        if (fullyVerifiedCount === totalItems && totalItems > 0) {
             cont.parent().find("#finishBuy").prop("disabled", false);
         } else {
             cont.parent().find("#finishBuy").prop("disabled", true);
         }
     }
 
+    checkIfItemFullyVerified(itemId) {
+        let itemData = Session.val.items[itemId];
+        if (!itemData.scannedInfo) itemData.scannedInfo = {};
+        
+        let isComplete = true;
+        $.each(itemData.packs, function(vol, reqQty) {
+            let scanned = 0;
+            if(itemData.scannedInfo[vol]) {
+                itemData.scannedInfo[vol].forEach(s => scanned += parseInt(s.qty));
+            }
+            if(scanned < parseInt(reqQty)) {
+                isComplete = false;
+            }
+        });
+
+        if(isComplete) {
+            itemData.scannedInfo.verified = true;
+            itemData.scannedInfo.completedAt = new Date().toISOString();
+        } else {
+            itemData.scannedInfo.verified = false;
+            delete itemData.scannedInfo.completedAt;
+        }
+        Session.Save();
+    }
+
     updateTableCodes() {
-        const tbody = $(document).find('#verifyList tbody');
-        tbody.empty();
+        const grid = $(document).find('#verifyGrid');
+        grid.empty();
 
-        Object.values(Session.val.items).forEach((item) => {
-            const base = `${item.code}_${item.depo}`;
+        function itemStatus(item) {
+            if (item.scannedInfo && item.scannedInfo.verified === true) return 2;
+            if (!item.scannedInfo || !item.packs) return 0;
+            let any = false;
+            Object.keys(item.packs).forEach(vol => {
+                if (item.scannedInfo[vol] && item.scannedInfo[vol].length > 0) any = true;
+            });
+            return any ? 1 : 0;
+        }
 
-            const isVerified = verifyItemsPass.includes(base);
+        // Sort: pending(0) → partial(1) → verified(2)
+        const sorted = Object.entries(Session.val.items).sort(([, a], [, b]) => itemStatus(a) - itemStatus(b));
 
-            const $row = $(`
-                <tr>
-                    <td class="px-3">${item.code}</td>
-                    <td class="px-3">
-                        <span class="badge ${isVerified ? 'bg-success' : 'bg-danger'} text-light">
-                            <i class="bi ${isVerified ? 'bi-check-circle' : 'bi-x-circle'} me-1 text-light"></i>
-                            ${isVerified ? 'Verificado' : 'Pendiente'}
-                        </span>
-                    </td>
-                    <td class="px-3">
-                        ${isVerified ? `
-                            <button class="btn btn-sm btn-danger text-light" onclick="new VerifyPass().removeVerifiedItem('${base}')">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        ` : ''}
-                    </td>
-                </tr>
-            `);
-            tbody.append($row);
+        sorted.forEach(([key, item]) => {
+            const status = itemStatus(item);
+            const isVerified = status === 2;
+            const isPartial  = status === 1;
+
+            const borderColor = isVerified ? '#86efac' : isPartial ? '#fde68a' : '#d1d5db';
+            const bgColor     = isVerified ? '#f0fdf4' : isPartial ? '#fffbeb' : '#f9fafb';
+
+            // Per-pack progress bars (one per pack size)
+            let packsHtml = '';
+            if (item.packs) {
+                Object.entries(item.packs).forEach(([vol, reqQty]) => {
+                    let scanned = 0, hasQR = false, hasBar = false;
+                    if (item.scannedInfo && item.scannedInfo[vol]) {
+                        item.scannedInfo[vol].forEach(s => {
+                            scanned += parseInt(s.qty);
+                            if (s.type === 'qr') hasQR = true; else hasBar = true;
+                        });
+                    }
+                    const req = parseInt(reqQty);
+                    const pct = Math.min(100, Math.round((scanned / req) * 100));
+                    const done = scanned >= req;
+                    const barColor = done ? '#22c55e' : (scanned > 0 ? '#f59e0b' : '#9ca3af');
+                    const icons = (hasQR  ? '<i class="bi bi-qr-code" style="font-size:.65rem;"></i>' : '')
+                                + (hasBar ? '<i class="bi bi-upc-scan ms-1" style="font-size:.65rem;"></i>' : '');
+                    packsHtml += `
+                    <div class="mb-2" style="cursor:pointer;" onclick="new VerifyPass().showScanHistory('${key}','${vol}')" title="Ver historial x${vol}">
+                        <div class="d-flex justify-content-between align-items-center mb-1" style="font-size:.72rem;">
+                            <span style="color:#64748b;">×${vol} <strong style="color:${done?'#16a34a':'#1e293b'}">${scanned}/${req}</strong></span>
+                            <span style="color:#94a3b8;">${icons}</span>
+                        </div>
+                        <div style="height:5px;background:#e2e8f0;border-radius:3px;overflow:hidden;">
+                            <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width .3s;"></div>
+                        </div>
+                    </div>`;
+                });
+            }
+
+            const badge = isVerified
+                ? `<span style="font-size:.6rem;padding:2px 5px;border-radius:10px;background:#dcfce7;color:#166534;"><i class="bi bi-check-lg"></i> OK</span>`
+                : isPartial
+                ? `<span style="font-size:.6rem;padding:2px 5px;border-radius:10px;background:#fef3c7;color:#92400e;"><i class="bi bi-hourglass-split"></i> Parcial</span>`
+                : `<span style="font-size:.6rem;padding:2px 5px;border-radius:10px;background:#f3f4f6;color:#6b7280;"><i class="bi bi-clock"></i> Pendiente</span>`;
+
+            const revertBtn = isVerified
+                ? `<button class="btn btn-sm w-100 mt-2" style="font-size:.65rem;padding:2px 6px;border:1px solid #86efac;color:#166534;background:transparent;"
+                       onclick="new VerifyPass().removeVerifiedItem('${key}')">
+                       <i class="bi bi-arrow-counterclockwise"></i> Revertir
+                   </button>` : '';
+
+            const $col = $(`<div class="col-6 col-sm-4 col-md-3 col-lg-2">
+                <div class="h-100 d-flex flex-column p-2" style="background:${bgColor};border:1.5px solid ${borderColor};border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.06);transition:border .2s;">
+                    <div class="d-flex justify-content-between align-items-start mb-1">
+                        <span class="fw-bold text-truncate" style="font-size:.85rem;max-width:72%;color:#1e293b;" title="${item.code}">${item.code}</span>
+                        ${badge}
+                    </div>
+                    <div class="mb-2" style="font-size:.68rem;color:#94a3b8;">Dep. ${item.depo}</div>
+                    <div class="flex-grow-1">${packsHtml}</div>
+                    ${revertBtn}
+                </div>
+            </div>`);
+
+            grid.append($col);
         });
     }
 
-    removeVerifiedItem(base) {
-        const index = verifyItemsPass.indexOf(base);
-        if (index > -1) {
-            verifyItemsPass.splice(index, 1);
+    showScanHistory(itemKey, packVol) {
+        const item = Session.val.items[itemKey];
+        if (!item) return;
+
+        const scans  = (item.scannedInfo && item.scannedInfo[packVol]) ? item.scannedInfo[packVol] : [];
+        const reqQty = parseInt(item.packs[packVol] || 0);
+        let totalScanned = 0;
+        scans.forEach(s => totalScanned += parseInt(s.qty));
+
+        let historyHtml = '';
+        if (scans.length === 0) {
+            historyHtml = `<div class="text-center text-muted py-3"><i class="bi bi-inbox d-block fs-4 mb-2"></i>Sin escaneos aun</div>`;
+        } else {
+            scans.forEach(scan => {
+                const isQR = scan.type === 'qr';
+                const timeStr = new Date(scan.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                const codeTrunc = scan.code && scan.code.length > 18 ? scan.code.slice(0, 14) + '...' : scan.code;
+                const qrBlock = isQR
+                    ? `<div class="text-center mt-2"><img src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(scan.code)}" style="border:1px solid #e5e7eb;border-radius:4px;" loading="lazy" alt="QR"></div>`
+                    : '';
+                historyHtml += `
+                <div class="p-2 mb-2 rounded" style="background:${isQR?'#eff6ff':'#f9fafb'};border:1px solid ${isQR?'#bfdbfe':'#e5e7eb'};">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="fw-bold" style="font-size:.78rem;">
+                            ${isQR ? '<i class="bi bi-qr-code text-primary me-1"></i>QR' : '<i class="bi bi-upc-scan text-secondary me-1"></i>Barcode'}
+                        </span>
+                        <small class="text-muted">${timeStr}</small>
+                    </div>
+                    <div class="mt-1" style="font-size:.72rem;color:#6b7280;">
+                        Cant: <strong>${scan.qty}</strong>${scan.buy ? ` &middot; Compra #${scan.buy}` : ''}
+                    </div>
+                    <div class="mt-1" style="font-size:.68rem;color:#9ca3af;word-break:break-all;">${codeTrunc}</div>
+                    ${qrBlock}
+                </div>`;
+            });
+        }
+
+        const doneColor = totalScanned >= reqQty ? '#16a34a' : '#d97706';
+        Swal.fire({
+            title: `<span style="font-size:.95rem;">${item.code} &middot; Paq. x${packVol}</span>`,
+            html: `
+                <div class="d-flex justify-content-between px-1 mb-3">
+                    <span style="font-size:.8rem;color:#6b7280;">Requerido: <strong>${reqQty}</strong></span>
+                    <span style="font-size:.8rem;color:${doneColor};">Escaneado: <strong>${totalScanned}</strong></span>
+                </div>
+                <div style="max-height:340px;overflow-y:auto;text-align:left;">${historyHtml}</div>`,
+            showConfirmButton: false,
+            showCloseButton: true,
+            width: 340
+        });
+    }
+
+    removeVerifiedItem(itemId) {
+        if (Session.val.items[itemId]) {
+            delete Session.val.items[itemId].scannedInfo;
+            Session.Save();
         }
         this.updateTableCodes();
         this.updateVerify();
@@ -1070,9 +1189,8 @@ class VerifyPass {
 }
 
 $(document).ready(async function () {
-    $('#sidebar').css('z-index', '1090');
     const CoreFunc = new Core();
-
+    $(document).find('#sidebar').css('z-index', '1090');
 
     $(document).on("keyup", "#qinputClient", function () {
         var value = $(this).val().toLowerCase();
@@ -1759,17 +1877,22 @@ $(document).ready(async function () {
             if (motor == "chrystal" && $(document).find('input#Crycredit').val() == "") {
                 new messageTemp('Pines Jm', 'Rellene Todas Las Casillas', 'info');
                 return;
-            } else if (motor == "pinesjm" && ($(document).find('#nrdocument').val() == "" || $(document).find('input#JMcredit').val() == "")) {
+            } else if (motor == "pinesjm" && $(document).find('input#JMcredit').val() == "") {
                 new messageTemp('Pines Jm', 'Rellene Todas Las Casillas', 'info');
                 return;
             }
             new VerifyPass().updateTableCodes();
 
-            btns.find("#skipVerify").prop("hidden", false);
+            cont.closest('.modal-dialog').addClass('modal-fullscreen').removeClass('modal-xl');
+
             btns.find("#backToMain").prop("hidden", false);
             cont.find("#verifyList").prop("hidden", false);
             cont.find("#main").prop("hidden", true);
-            cont.find("#codePassed").html("Productos Revisados<br>" + verifyItemsPass.length + " / " + Object.keys(Session.val.items).length);
+            cont.find("#codePassed").html(verifyItemsPass.length + " / " + Object.keys(Session.val.items).length);
+            
+            // Scroll to top and focus
+            $('.modal').animate({ scrollTop: 0 }, 'fast');
+            setTimeout(() => cont.find('#codeV').focus(), 100);
 
             if (verifyItemsPass.length != Object.keys(Session.val.items).length) {
                 $(this).prop("disabled", true);
@@ -1779,21 +1902,17 @@ $(document).ready(async function () {
             cont.find("#codeV").focus();
             $(this).attr("step", 1);
             $(this).text("Finalizar");
+            $('#sidebar').css('z-index', 40);
         } else if ($(this).attr("step") == 1) {
             start_Reset.clearVerifyItems();
             start_Reset.stopInterval();
             CoreFunc.completeBuy();
+            $(document).find('#sidebar').css('z-index', '1090');
         }
     });
 
-    /* VERIFICACION DE CODIGOS */
-    $(document).on('click', "#skipVerify", function () {
-        start_Reset.clearVerifyItems();
-        start_Reset.stopInterval();
-        CoreFunc.completeBuy();
-    });
-
     $(document).on('click', "#backToMain", function () {
+        $('#sidebar').css('z-index', '1090');
         ttsClass.detener();
         start_Reset.clearVerifyItems();
         const btns = $(this).parent();
@@ -1802,93 +1921,268 @@ $(document).ready(async function () {
         btns.find("#finishBuy").text("Siguiente");
         btns.find("#finishBuy").prop("disabled", false);
 
-        btns.find("#skipVerify").prop("hidden", true);
         btns.find("#backToMain").prop("hidden", true);
         cont.find("#main").prop("hidden", false);
         cont.find("#verifyList").prop("hidden", true);
+        cont.closest('.modal-dialog').removeClass('modal-fullscreen').addClass('modal-xl');
     });
 
 
     $(document).on('input', '#verifyList #codeV', function () {
         const cont = $("#verifyList");
         const item = $(this);
-        const img = $(document).find('#verifyList img');
 
-        const verifyCallback = async (code) => {
-            const checkCode = await new VerifyPass().itemExist(code);
+        const verifyCallback = async (inputCode) => {
+            if (inputCode.trim().toUpperCase() === 'SKIP') {
+                item.val("");
+                $.each(Session.val.items, function(itemId, itemData) {
+                    if (itemData.scannedInfo && itemData.scannedInfo.verified === true) return;
+                    if (!itemData.scannedInfo) itemData.scannedInfo = {};
+                    $.each(itemData.packs, function(vol, reqQty) {
+                        let currentScanned = 0;
+                        if (itemData.scannedInfo[vol]) {
+                            itemData.scannedInfo[vol].forEach(s => currentScanned += parseInt(s.qty));
+                        }
+                        const remaining = parseInt(reqQty) - currentScanned;
+                        if (remaining > 0) {
+                            if (!itemData.scannedInfo[vol]) itemData.scannedInfo[vol] = [];
+                            itemData.scannedInfo[vol].push({
+                                buy: null,
+                                qty: remaining,
+                                code: 'SKIP',
+                                type: 'old_bar',
+                                timestamp: Date.now()
+                            });
+                        }
+                    });
+                    new VerifyPass().checkIfItemFullyVerified(itemId);
+                });
+                Session.Save();
+                new VerifyPass().updateTableCodes();
+                new VerifyPass().updateVerify();
+                ttsClass.hablar([{ role: 'speak', content: 'Verificación omitida. Todos los productos marcados.' }]);
+                return;
+            }
+
+            let codeToSearch = inputCode;
+            let qrAmount = null;
+            let isQR = false;
+            let qrDataId = null;
+            let qrBuyNum = null;
+
+            if (inputCode.length > 30) {
+                isQR = true;
+                try {
+                    Swal.fire({
+                        title: 'Verificando Código QR...',
+                        allowOutsideClick: false,
+                        didOpen: () => { Swal.showLoading(); }
+                    });
+                    
+                    const response = await fetch(urlAPI + "label/verify", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": "Bearer " + apiKey
+                        },
+                        body: JSON.stringify({ "token": inputCode })
+                    });
+                    
+                    const data = await response.json();
+                    if (data && data.id) {
+                        codeToSearch = data.id;
+                        qrDataId = data.id;
+                        qrAmount = data.amount;
+                        qrBuyNum = data.purchase_number || null;
+                    } else {
+                        throw new Error("Invalid Token");
+                    }
+                } catch (error) {
+                    Swal.fire('Error', 'QR inválido o irreconocible', 'error');
+                    item.val("");
+                    return;
+                }
+            }
+
+            const checkCode = await new VerifyPass().itemExist(codeToSearch);
             $(item).data('detectorInitialized', false);
 
-            if (checkCode.Reason === "noExist") {
-                ttsClass.hablar([
-                    { "role": "speak", "content": `El código ${code}, no existe en la base de datos` },
-                ]);
-                item.val("");
-            } else if (checkCode.Reason === "noFound") {
-                img.attr('src', checkCode.imgUrl);
-                setTimeout(() => {
-                    img.attr('src', './resc/img/No-Image-Placeholder.png');
-                }, 3000);
-                ttsClass.hablar([
-                    { "role": "speak", "content": `El código ${code}, no se encuentra en la lista` },
-                ]);
+            if (checkCode.Reason === "noExist" || checkCode.Reason === "noFound") {
+                if (isQR) Swal.close();
+                ttsClass.hablar([{ "role": "speak", "content": `El código ${codeToSearch}, no se encuentra en la lista` }]);
                 item.val("");
             } else if (checkCode.Reason === "alreadyCheck") {
-                img.attr('src', checkCode.imgUrl);
-                setTimeout(() => {
-                    img.attr('src', './resc/img/No-Image-Placeholder.png');
-                }, 3000);
-                ttsClass.hablar([
-                    { "role": "speak", "content": `El código ${code}, ya está verificado` },
-                ]);
+                if (isQR) Swal.close();
+                ttsClass.hablar([{ "role": "speak", "content": `El código ${codeToSearch}, ya está verificado` }]);
                 item.val("");
             } else if (checkCode.Reason === "found") {
-                img.attr('src', checkCode.imgUrl);
-                cont.find("#quantityTotalV").text("Cantidad Requerida: " + checkCode.total);
-                cont.find("#depositV").text("Depósito: " + checkCode.dp);
-                cont.find("#quantityV").html(checkCode.packs);
-                ttsClass.hablar([
-                    { "role": "speak", "content": "Código: " + code },
-                    { "role": "speak", "content": "Cantidad Requerida de " + checkCode.total },
-                    { "role": "speak", "content": "Contenido " + checkCode.ttspq.join(", ") }
-                ]);
-
-                let isKeyPressRegistered = false;
-
-                const handleKeyPress = function (e) {
-                    if (!isKeyPressRegistered) {
-                        isKeyPressRegistered = true;
-
-                        if (e.which === 13) {
-                            item.val("");
-                            cont.find("#quantityTotalV").text("Cantidad Requerida:");
-                            cont.find("#depositV").text("Depósito:");
-                            cont.find("#quantityV").html("");
-                            ttsClass.hablar([
-                                { "role": "speak", "content": "Aceptado" }
-                            ]);
-                            verifyItemsPass.push(checkCode.base);
-                            new VerifyPass().updateVerify();
-                            img.attr('src', './resc/img/No-Image-Placeholder.png');
-                            new VerifyPass().updateTableCodes();
-
-                        } else if (e.which === 8) {
-                            item.val("");
-                            cont.find("#quantityTotalV").text("Cantidad Requerida:");
-                            cont.find("#depositV").text("Depósito:");
-                            cont.find("#quantityV").html("");
-                            ttsClass.hablar([
-                                { "role": "speak", "content": "Denegado" }
-                            ]);
-                            img.attr('src', './resc/img/No-Image-Placeholder.png');
-                            new VerifyPass().updateVerify();
-                        }
-
-                        $(document).off('keydown', handleKeyPress);
-                        isKeyPressRegistered = false;
+                const itemId = checkCode.id;
+                const itemData = Session.val.items[itemId];
+                if (!itemData.scannedInfo) itemData.scannedInfo = {};
+                
+                if (isQR) {
+                    if (!itemData.packs[qrAmount]) {
+                        Swal.fire('Error', 'Este paquete de ' + qrAmount + ' no fue solicitado.', 'error');
+                        ttsClass.hablar([{ role: "speak", content: "Denegado. Paquete no requerido." }]);
+                        item.val("");
+                        return;
                     }
-                };
 
-                $(document).on('keydown', handleKeyPress);
+                    let maxAllowed = parseInt(itemData.packs[qrAmount] || 0);
+                    let currentScanned = 0;
+                    if (itemData.scannedInfo[qrAmount]) {
+                        itemData.scannedInfo[qrAmount].forEach(s => currentScanned += parseInt(s.qty));
+                    }
+
+                    if (currentScanned + 1 > maxAllowed) {
+                        Swal.fire('Denegado', 'Ya escaneaste todos los paquetes requeridos de ' + qrAmount + '.', 'error');
+                        ttsClass.hablar([{ role: "speak", content: "Denegado. Paquetes excedidos." }]);
+                        item.val("");
+                        return;
+                    }
+
+                    if (!itemData.scannedInfo[qrAmount]) itemData.scannedInfo[qrAmount] = [];
+                    itemData.scannedInfo[qrAmount].push({
+                        buy: qrBuyNum,
+                        qty: 1,
+                        code: inputCode,
+                        type: "qr",
+                        timestamp: Date.now()
+                    });
+
+                    item.val("");
+                    ttsClass.hablar([{ "role": "speak", "content": "Paquete QR Aceptado." }]);
+                    Swal.fire({
+                        position: 'top-end', icon: 'success', title: 'Aceptado: ' + codeToSearch,
+                        html: `<b>Caja:</b> ${qrAmount}`,
+                        showConfirmButton: false, timer: 1500, toast: true, backdrop: false
+                    });
+
+                    new VerifyPass().checkIfItemFullyVerified(itemId);
+                    new VerifyPass().updateTableCodes();
+                    new VerifyPass().updateVerify();
+
+                    const cardTarget = $(document).find(`h6[title="${codeToSearch}"]`).closest('.card');
+                    if (cardTarget.length) {
+                        const gridCont = $(document).find('#verifyGrid').parent();
+                        gridCont.animate({ scrollTop: gridCont.scrollTop() + cardTarget.position().top - 20 }, 300);
+                    }
+
+                } else {
+                    // OLD BARCODE — stepper por paquete
+                    const pendingPacks = [];
+                    $.each(itemData.packs, function(vol, reqQty) {
+                        let currScanned = 0;
+                        if (itemData.scannedInfo[vol]) {
+                            itemData.scannedInfo[vol].forEach(s => currScanned += parseInt(s.qty));
+                        }
+                        const remaining = parseInt(reqQty) - currScanned;
+                        if (remaining > 0) pendingPacks.push({ vol, remaining });
+                    });
+
+                    if (pendingPacks.length === 0) {
+                        Swal.fire('Completado', 'El producto ya tiene todas las cajas verificadas.', 'info');
+                        item.val("");
+                        return;
+                    }
+
+                    let steppersHtml = pendingPacks.map(p => `
+                        <div class="d-flex align-items-center justify-content-between mb-2 px-2 py-2 rounded"
+                             style="background:#f8fafc;border:1.5px solid #e2e8f0;">
+                            <div>
+                                <div class="fw-bold" style="font-size:.88rem;color:#1e293b;">\xD7${p.vol} pzs</div>
+                                <div style="font-size:.7rem;color:#94a3b8;">Faltan: ${p.remaining}</div>
+                            </div>
+                            <div class="input-group input-group-sm" style="width:110px;">
+                                <button class="btn verifyStepperBtn" type="button"
+                                        data-action="subtract" data-vol="${p.vol}"
+                                        style="background:#1e293b;color:#fff;border:none;border-radius:6px 0 0 6px;">
+                                    <i class="bi bi-dash-lg"></i>
+                                </button>
+                                <input type="text" id="stepVol_${p.vol}"
+                                       class="form-control text-center border-0 fw-bold"
+                                       style="background:#f1f5f9;font-size:.9rem;"
+                                       value="0" min="0" max="${p.remaining}"
+                                       oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+                                <button class="btn verifyStepperBtn" type="button"
+                                        data-action="add" data-vol="${p.vol}"
+                                        style="background:#1e293b;color:#fff;border:none;border-radius:0 6px 6px 0;">
+                                    <i class="bi bi-plus-lg"></i>
+                                </button>
+                            </div>
+                        </div>`).join('');
+
+                    const { value: entries } = await Swal.fire({
+                        title: `<span style="font-size:.95rem;">${codeToSearch} <span style="color:#94a3b8;font-weight:400;">— Barcode</span></span>`,
+                        html: `
+                            <p class="text-muted mb-3" style="font-size:.78rem;">Indica cuántas cajas confirmas físicamente por tamaño</p>
+                            <div style="max-height:300px;overflow-y:auto;">${steppersHtml}</div>`,
+                        showCancelButton: true,
+                        confirmButtonText: "Confirmar",
+                        cancelButtonText: "Cancelar",
+                        customClass: { confirmButton: 'btn btn-dark btn-sm rounded-pill px-4',
+                                       cancelButton:  'btn btn-outline-secondary btn-sm rounded-pill px-3' },
+                        didOpen: () => {
+                            document.querySelectorAll('.verifyStepperBtn').forEach(btn => {
+                                btn.addEventListener('click', function() {
+                                    const vol  = this.dataset.vol;
+                                    const act  = this.dataset.action;
+                                    const inp  = document.getElementById(`stepVol_${vol}`);
+                                    const max  = parseInt(inp.max);
+                                    let   val  = parseInt(inp.value) || 0;
+                                    inp.value  = act === 'add' ? Math.min(max, val + 1) : Math.max(0, val - 1);
+                                });
+                            });
+                        },
+                        preConfirm: () => {
+                            const result = [];
+                            let valid = true;
+                            pendingPacks.forEach(p => {
+                                const inp = document.getElementById(`stepVol_${p.vol}`);
+                                const qty = parseInt(inp.value) || 0;
+                                if (qty > p.remaining) {
+                                    Swal.showValidationMessage(`Máximo ${p.remaining} cajas de \xD7${p.vol}`);
+                                    valid = false;
+                                }
+                                if (qty > 0) result.push({ vol: p.vol, qty });
+                            });
+                            if (!valid) return false;
+                            if (result.length === 0) {
+                                Swal.showValidationMessage('Ingresa al menos 1 caja en algún paquete');
+                                return false;
+                            }
+                            return result;
+                        }
+                    });
+
+                    if (entries) {
+                        entries.forEach(e => {
+                            if (!itemData.scannedInfo[e.vol]) itemData.scannedInfo[e.vol] = [];
+                            itemData.scannedInfo[e.vol].push({
+                                buy: null,
+                                qty: e.qty,
+                                code: inputCode,
+                                type: "old_bar",
+                                timestamp: Date.now()
+                            });
+                        });
+
+                        item.val("");
+                        ttsClass.hablar([{ role: "speak", content: "Aceptado manual." }]);
+                        const summary = entries.map(e => `${e.qty}\xD7${e.vol}`).join(', ');
+                        Swal.fire({
+                            position: 'top-end', icon: 'success', title: 'Aceptado: ' + codeToSearch,
+                            html: `<b>Cajas:</b> ${summary}`,
+                            showConfirmButton: false, timer: 1500, toast: true, backdrop: false
+                        });
+
+                        new VerifyPass().checkIfItemFullyVerified(itemId);
+                        new VerifyPass().updateTableCodes();
+                        new VerifyPass().updateVerify();
+                    } else {
+                        item.val("");
+                    }
+                }
             }
         };
 
@@ -1987,4 +2281,5 @@ $(document).ready(async function () {
         }
         mode = 0;
     }
+
 });

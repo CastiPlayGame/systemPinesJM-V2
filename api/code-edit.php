@@ -530,7 +530,16 @@ if (isset($_POST['Movements'])) {
             $result = mysqli_query($conn, $sql);
 
             if (mysqli_num_rows($result) > 0) {
-                $updateSql = "UPDATE sales SET type=1, nr=" . $_POST['nr'] . ", event=JSON_ARRAY_APPEND(event, '$', JSON_OBJECT('event', 0, 'date', NOW(), 'coment', 'Su Nota Ha Sido Creada y Realizada Con Exito...')) WHERE uuid='" . $_POST['uuid'] . "'";
+                // Obtener nr auto-incrementado de la tabla sequences
+                $seqResult = mysqli_query($conn, "SELECT current_value FROM sequences WHERE name = 'nr_type_1' LIMIT 1");
+                if (!$seqResult || mysqli_num_rows($seqResult) == 0) {
+                    die(json_encode(["success" => false, "message" => "Error: No se encontró la secuencia 'nr_type_1' en la tabla sequences"]));
+                }
+                $seqRow = mysqli_fetch_assoc($seqResult);
+                $nr = intval($seqRow['current_value']) + 1;
+                mysqli_query($conn, "UPDATE sequences SET current_value = $nr WHERE name = 'nr_type_1'");
+
+                $updateSql = "UPDATE sales SET type=1, nr=" . $nr . ", event=JSON_ARRAY_APPEND(event, '$', JSON_OBJECT('event', 0, 'date', NOW(), 'coment', 'Su Nota Ha Sido Creada y Realizada Con Exito...')) WHERE uuid='" . $_POST['uuid'] . "'";
                 mysqli_query($conn, $updateSql);
 
                 $resultConsult["success"] = true;

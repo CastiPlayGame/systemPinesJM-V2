@@ -4,7 +4,7 @@ var providerBuyID = null;
 var providerBuyNr = null;
 var providerBuyOrdered = 0;
 var providerBuyShipped = 0;
-var lastScanBuyID = null;
+var lastScanBuyID = '__not_started__'; // '__not_started__' = sin escanear aún, null = compra sin número (manual/sin orden)
 var scannerBuffer = "";
 var scannerTimeout = null;
 var scannedPackets = {}; // Track what was scanned/removed in current session
@@ -160,18 +160,14 @@ function updateItem() {
         return;
     }
     function LoadDeposit(Quantity) {
-        let contentList = "Deposito Vacio";
         const id = $("input[name='viewItem']:checked").val();
+        const depoSelect = $("input[name='depositnr']:checked").val();
 
         // Check for open purchase orders to toggle Query button
         $.ajax({
             type: "POST",
             url: "api/code-obtain.php",
-            data: {
-                Provider: true,
-                ProviderPurchaseOrders: true,
-                item_id: id
-            },
+            data: { Provider: true, ProviderPurchaseOrders: true, item_id: id },
             dataType: "json",
             success: function (data) {
                 const buyBtn = $(document).find("[data-mode='buy']");
@@ -182,156 +178,242 @@ function updateItem() {
                 }
             }
         });
-        const depoSelect = $("input[name=\'depositnr\']:checked").val();
-        let totalItem = 0;
-        $.each(Quantity, function (depo, list) {
-            totalItem += list.Pcs;
-            $.each(list.Packets, function (pack, nr) {
-                totalItem += pack * nr;
-            });
+
+        // Fetch reserved quantities from active retained orders, then render
+        $.ajax({
+            type: "POST",
+            url: "api/code-obtain.php",
+            data: { Accounting: true, Retained: true, Reserved: true, item_id: id, depo: depoSelect },
+            dataType: "json",
+            success: function (reserved) { _render(reserved || {}); },
+            error:   function ()          { _render({}); }
         });
 
-        let depoTotalItem = 0;
-        if (Quantity.hasOwnProperty(depoSelect)) {
-            depoTotalItem = Quantity[depoSelect].Pcs;
-            let sortedPackets = Object.keys(Quantity[depoSelect].Packets).reverse();
-            const createCard = (type, icon, title, content, summary, actions, extraData = "") => {
-                const cardID = Array.isArray(type) ? type[1] : type;
-                return `
-                    <div id="${cardID}" class="d-flex align-items-stretch gap-3 w-100 pb-1 itemCard" style="min-height: 80px;">
-                        <div class="card shadow-sm rounded-5 flex-grow-1" id="item" style="background: var(--secondary_color); border: 1px solid #e7e7e7ff;">
-                            <div class="card-body d-flex align-items-center gap-3 pe-3 ps-3">
-                                <div class="rounded-5 d-flex align-items-center justify-content-center shadow-sm" 
-                                     style="width: 50px; height: 50px; background: var(--primary_color); color: var(--primary_text_color);">
-                                    <i class="bi ${icon} h4 m-0"></i>
-                                </div>
-                                <div>
-                                    <h6 class="m-0 fw-bold" style="color: var(--secondary_text_color);">${title}</h6>
-                                    ${content}
-                                </div>
-                            </div>
-                        </div>
-                        <div class="card shadow-sm rounded-5" id="summary" style="background: var(--secondary_color); border: 1px solid #e7e7e7ff;" ${mode == null ? "hidden" : ""}>
-                            <div class="card-body d-flex align-items-center justify-content-center px-4" style="min-width: 120px;">
-                                ${summary}
-                            </div>
-                        </div>
-                        <div class="card shadow-sm rounded-5" id="actions" style="background: var(--secondary_color); border: 1px solid #e7e7e7ff;" ${mode == null ? "hidden" : ""}>
-                            <div class="card-body d-flex align-items-center justify-content-center pe-2 ps-3" id="${id}" data-type="${Array.isArray(type) ? type[0] : type}" data-depo="${depoSelect}" ${extraData}>
-                                <div class="d-flex align-items-center gap-2">
-                                    ${actions}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            };
+        function _render(reserved) {
+            let contentList = "Deposito Vacio";
 
-            contentList = '';
-            $.each(sortedPackets, function (index, pack) {
-                listEdit[pack] = listEdit[pack] || 0;
+            let totalItem = 0;
+            $.each(Quantity, function (depo, list) {
+                totalItem += list.Pcs;
+                $.each(list.Packets, function (pack, nr) {
+                    totalItem += pack * nr;
+                });
+            });
 
-                let nr = Quantity[depoSelect].Packets[pack];
-                depoTotalItem += pack * nr;
+            let depoTotalItem = 0;
+            if (Quantity.hasOwnProperty(depoSelect)) {
+                depoTotalItem = Quantity[depoSelect].Pcs;
+                let sortedPackets = Object.keys(Quantity[depoSelect].Packets).reverse();
+                const createCard = (type, icon, title, content, summary, actions, extraData = "") => {
+                    const cardID = Array.isArray(type) ? type[1] : type;
+                    return `
+                        <div id="${cardID}" class="d-flex align-items-stretch gap-3 w-100 pb-1 itemCard" style="min-height: 80px;">
+                            <div class="card shadow-sm rounded-5 flex-grow-1" id="item" style="background: var(--secondary_color); border: 1px solid #e7e7e7ff;">
+                                <div class="card-body d-flex align-items-center gap-3 pe-3 ps-3">
+                                    <div class="rounded-5 d-flex align-items-center justify-content-center shadow-sm" 
+                                         style="width: 50px; height: 50px; background: var(--primary_color); color: var(--primary_text_color);">
+                                        <i class="bi ${icon} h4 m-0"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="m-0 fw-bold" style="color: var(--secondary_text_color);">${title}</h6>
+                                        ${content}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card shadow-sm rounded-5" id="summary" style="background: var(--secondary_color); border: 1px solid #e7e7e7ff;" ${mode == null ? "hidden" : ""}>
+                                <div class="card-body d-flex align-items-center justify-content-center px-4" style="min-width: 120px;">
+                                    ${summary}
+                                </div>
+                            </div>
+                            <div class="card shadow-sm rounded-5" id="actions" style="background: var(--secondary_color); border: 1px solid #e7e7e7ff;" ${mode == null ? "hidden" : ""}>
+                                <div class="card-body d-flex align-items-center justify-content-center pe-2 ps-3" id="${id}" data-type="${Array.isArray(type) ? type[0] : type}" data-depo="${depoSelect}" ${extraData}>
+                                    <div class="d-flex align-items-center gap-2">
+                                        ${actions}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                };
+
+                const reservedBadge = (key) => {
+                    const data = reserved[key];
+                    if (!data || !data.total || data.total <= 0) return '';
+                    const tooltipLines = (data.orders || []).map(o => {
+                        const raw    = (o.name || '').trim();
+                        const isUUID = !raw || raw.startsWith('Pedido #');
+                        const label  = isUUID
+                            ? (o.client || '').length > 26 ? (o.client || '').substring(0, 26) + '…' : (o.client || '—')
+                            : raw.length > 26 ? raw.substring(0, 26) + '…' : raw;
+                        return `<div class="_rt-row"><span class="_rt-name">${label}</span><span class="_rt-qty">${o.qty} u.</span></div>`;
+                    }).join('');
+                    const tooltipHtml = tooltipLines;
+                    return `<span class="reservedTooltipBadge ms-2"
+                                data-rtip="${tooltipHtml.replace(/"/g, '&quot;')}"
+                                style="display:inline-flex;align-items:center;gap:5px;font-size:.78rem;font-weight:600;cursor:default;
+                                       background:#fef3c7;color:#92400e;border:1.5px solid #fcd34d;border-radius:20px;padding:3px 10px;">
+                                <i class="bi bi-bookmark-fill" style="font-size:.72rem;"></i>${data.total} apartado${data.total > 1 ? 's' : ''}
+                            </span>`;
+                };
+
+                contentList = '';
+                $.each(sortedPackets, function (index, pack) {
+                    listEdit[pack] = listEdit[pack] || 0;
+
+                    let nr = Quantity[depoSelect].Packets[pack];
+                    depoTotalItem += pack * nr;
+                    contentList += createCard(
+                        ['packet', pack],
+                        'bi-box-seam',
+                        `Paquete ${pack}`,
+                        `<div class="d-flex align-items-center flex-wrap gap-2">
+                            <span class="fs-6 fw-bold text-muted">Cantidad: ${nr}</span>
+                            <span class="text-muted">|</span>
+                            <span class="fs-6 fw-bold text-muted">Total: ${pack * nr}</span>
+                            ${reservedBadge(pack)}
+                        </div>`,
+                        `<span class="fs-5 fw-bolder text-muted summary-text">${listEdit[pack] == 0 ? "-" : (listEdit[pack] > 0 ? "+" + listEdit[pack] : listEdit[pack])}</span>`,
+                        `<div class="col-auto p-0">
+                            <div class="input-group input-group-sm" id="Stepper" style="width: 100px;">
+                                <button class="btn border-0" style="background-color: var(--primary_color); color: var(--primary_text_color);" type="button" data-action="subtract"><i class="bi bi-dash-lg"></i></button>
+                                <input type="text" class="form-control text-center border-0 fw-bold" style="background-color: #f8f9fa;" value="${nr + listEdit[pack]}" id="StepperValue" oninput="this.value = this.value.replace(/[^0-9]/g, '');">
+                                <button class="btn border-0" style="background-color: var(--primary_color); color: var(--primary_text_color);" type="button" data-action="add"><i class="bi bi-plus-lg"></i></button>
+                            </div>
+                        </div>
+                        <div class="col-auto p-0" style="width: 45px;" >
+                            <button type="button" class="btn btn-outline-danger shadow-none border-0" item-data="${pack}" id="deletePacket" ${nr == 0 ? "" : "hidden"}><i class="bi bi-x-lg"></i></button>
+                        </div>`,
+                        `data-pack="${pack}" data-initial-qty="${nr}"`
+                    );
+                });
+
+                listEdit["pcs"] = listEdit["pcs"] || 0;
+                listEdit["samples"] = listEdit["samples"] || 0;
+
                 contentList += createCard(
-                    ['packet', pack],
-                    'bi-box-seam',
-                    `Paquete ${pack}`,
-                    `<div class="d-flex gap-2">
-                        <span class="fs-6 fw-bold text-muted">Cantidad: ${nr}</span>
-                        <span class="text-muted">|</span>
-                        <span class="fs-6 fw-bold text-muted">Total: ${pack * nr}</span>
+                    'pcs',
+                    'bi-puzzle',
+                    'Piezas Sueltas',
+                    `<div class="d-flex align-items-center flex-wrap gap-2">
+                        <span class="fs-6 fw-bold text-muted">Total: ${Quantity[depoSelect].Pcs}</span>
+                        ${reservedBadge('pcs')}
                     </div>`,
-                    `<span class="fs-5 fw-bolder text-muted summary-text">${listEdit[pack] == 0 ? "-" : (listEdit[pack] > 0 ? "+" + listEdit[pack] : listEdit[pack])}</span>`,
+                    `<span class="fs-5 fw-bolder text-muted summary-text">${listEdit["pcs"] == 0 ? "-" : (listEdit["pcs"] > 0 ? "+" + listEdit["pcs"] : listEdit["pcs"])}</span>`,
                     `<div class="col-auto p-0">
                         <div class="input-group input-group-sm" id="Stepper" style="width: 100px;">
                             <button class="btn border-0" style="background-color: var(--primary_color); color: var(--primary_text_color);" type="button" data-action="subtract"><i class="bi bi-dash-lg"></i></button>
-                            <input type="text" class="form-control text-center border-0 fw-bold" style="background-color: #f8f9fa;" value="${nr + listEdit[pack]}" id="StepperValue" oninput="this.value = this.value.replace(/[^0-9]/g, '');">
+                            <input type="text" class="form-control text-center border-0 fw-bold" style="background-color: #f8f9fa;" value="${Quantity[depoSelect].Pcs + listEdit["pcs"]}" id="StepperValue" oninput="this.value = this.value.replace(/[^0-9]/g, '');">
                             <button class="btn border-0" style="background-color: var(--primary_color); color: var(--primary_text_color);" type="button" data-action="add"><i class="bi bi-plus-lg"></i></button>
                         </div>
                     </div>
-                    <div class="col-auto p-0" style="width: 45px;" >
-                        <button type="button" class="btn btn-outline-danger shadow-none border-0" item-data="${pack}" id="deletePacket" ${nr == 0 ? "" : "hidden"}><i class="bi bi-x-lg"></i></button>
+                    <div class="col-auto p-0" style="width: 45px;">
                     </div>`,
-                    `data-pack="${pack}" data-initial-qty="${nr}"`
+                    `data-initial-qty="${Quantity[depoSelect].Pcs}"`
                 );
-            });
 
-            listEdit["pcs"] = listEdit["pcs"] || 0;
-            listEdit["samples"] = listEdit["samples"] || 0;
-
-
-            contentList += createCard(
-                'pcs',
-                'bi-puzzle',
-                'Piezas Sueltas',
-                `<span class="fs-6 fw-bold text-muted">Total: ${Quantity[depoSelect].Pcs}</span>`,
-                `<span class="fs-5 fw-bolder text-muted summary-text">${listEdit["pcs"] == 0 ? "-" : (listEdit["pcs"] > 0 ? "+" + listEdit["pcs"] : listEdit["pcs"])}</span>`,
-                `<div class="col-auto p-0">
-                    <div class="input-group input-group-sm" id="Stepper" style="width: 100px;">
-                        <button class="btn border-0" style="background-color: var(--primary_color); color: var(--primary_text_color);" type="button" data-action="subtract"><i class="bi bi-dash-lg"></i></button>
-                        <input type="text" class="form-control text-center border-0 fw-bold" style="background-color: #f8f9fa;" value="${Quantity[depoSelect].Pcs + listEdit["pcs"]}" id="StepperValue" oninput="this.value = this.value.replace(/[^0-9]/g, '');">
-                        <button class="btn border-0" style="background-color: var(--primary_color); color: var(--primary_text_color);" type="button" data-action="add"><i class="bi bi-plus-lg"></i></button>
+                contentList += createCard(
+                    'samples',
+                    'bi-eye',
+                    'Muestras',
+                    `<span class="fs-6 fw-bold text-muted">Total: ${Quantity[depoSelect].Samples ?? 0}</span>`,
+                    `<span class="fs-5 fw-bolder text-muted summary-text">${listEdit["samples"] == 0 ? "-" : (listEdit["samples"] > 0 ? "+" + listEdit["samples"] : listEdit["samples"])}</span>`,
+                    `<div class="col-auto p-0">
+                        <div class="input-group input-group-sm" id="Stepper" style="width: 100px;">
+                            <button class="btn border-0" style="background-color: var(--primary_color); color: var(--primary_text_color);" type="button" data-action="subtract"><i class="bi bi-dash-lg"></i></button>
+                            <input type="text" class="form-control text-center border-0 fw-bold" style="background-color: #f8f9fa;" value="${(Quantity[depoSelect].Samples ?? 0) + listEdit["samples"]}" id="StepperValue" oninput="this.value = this.value.replace(/[^0-9]/g, '');">
+                            <button class="btn border-0" style="background-color: var(--primary_color); color: var(--primary_text_color);" type="button" data-action="add"><i class="bi bi-plus-lg"></i></button>
+                        </div>
                     </div>
-                </div>
-                <div class="col-auto p-0" style="width: 45px;">
-                </div>`,
-                `data-initial-qty="${Quantity[depoSelect].Pcs}"`
-            );
-
-            contentList += createCard(
-                'samples',
-                'bi-eye',
-                'Muestras',
-                `<span class="fs-6 fw-bold text-muted">Total: ${Quantity[depoSelect].Samples ?? 0}</span>`,
-                `<span class="fs-5 fw-bolder text-muted summary-text">${listEdit["samples"] == 0 ? "-" : (listEdit["samples"] > 0 ? "+" + listEdit["samples"] : listEdit["samples"])}</span>`,
-                `<div class="col-auto p-0">
-                    <div class="input-group input-group-sm" id="Stepper" style="width: 100px;">
-                        <button class="btn border-0" style="background-color: var(--primary_color); color: var(--primary_text_color);" type="button" data-action="subtract"><i class="bi bi-dash-lg"></i></button>
-                        <input type="text" class="form-control text-center border-0 fw-bold" style="background-color: #f8f9fa;" value="${(Quantity[depoSelect].Samples ?? 0) + listEdit["samples"]}" id="StepperValue" oninput="this.value = this.value.replace(/[^0-9]/g, '');">
-                        <button class="btn border-0" style="background-color: var(--primary_color); color: var(--primary_text_color);" type="button" data-action="add"><i class="bi bi-plus-lg"></i></button>
-                    </div>
-                </div>
-                <div class="col-auto p-0" style="width: 45px;">
-                </div>`
-            );
-
-        }
-
-        $("#titleDeposits h5").text("Cantidad Total: " + totalItem);
-        $("#titleDeposits h6").text("Cantidad Deposito (" + depoSelect + "): " + depoTotalItem);
-
-        let balance = 0;
-        $.each(listEdit, function (k, v) {
-            let mult = (k === 'pcs' || k === 'samples') ? 1 : parseInt(k);
-            balance += v * mult;
-        });
-
-        let color = balance == 0 ? "text-success" : (balance < 0 ? "text-primary" : "text-danger");
-        let text = balance == 0 ? "Balanceado" : (balance < 0 ? "Disponible: " + Math.abs(balance) : "Exceso: " + balance);
-
-        if (mode === 'edit') {
-            $("#balanceDisplay").prop("hidden", false);
-
-            let hasChanges = false;
-            $.each(listEdit, function (k, v) {
-                if (v !== 0) hasChanges = true;
-            });
-
-            $("#balanceDisplay").text(text);
-            $("#balanceDisplay").removeClass("text-success text-primary text-danger");
-            $("#balanceDisplay").addClass(color);
-
-            if (balance === 0 && hasChanges) {
-                $("#saveStorageBtn").prop("disabled", false);
-            } else {
-                $("#saveStorageBtn").prop("disabled", true);
+                    <div class="col-auto p-0" style="width: 45px;">
+                    </div>`
+                );
             }
-        } else {
-            $("#balanceDisplay").prop("hidden", true);
-        }
 
-        $(document).find(".ItemList").html(contentList);
+            $("#titleDeposits h5").text("Cantidad Total: " + totalItem);
+            $("#titleDeposits h6").text("Cantidad Deposito (" + depoSelect + "): " + depoTotalItem);
+
+            let balance = 0;
+            $.each(listEdit, function (k, v) {
+                let mult = (k === 'pcs' || k === 'samples') ? 1 : parseInt(k);
+                balance += v * mult;
+            });
+
+            let color = balance == 0 ? "text-success" : (balance < 0 ? "text-primary" : "text-danger");
+            let text  = balance == 0 ? "Balanceado"   : (balance < 0 ? "Disponible: " + Math.abs(balance) : "Exceso: " + balance);
+
+            if (mode === 'edit') {
+                $("#balanceDisplay").prop("hidden", false);
+
+                let hasChanges = false;
+                $.each(listEdit, function (k, v) {
+                    if (v !== 0) hasChanges = true;
+                });
+
+                $("#balanceDisplay").text(text);
+                $("#balanceDisplay").removeClass("text-success text-primary text-danger");
+                $("#balanceDisplay").addClass(color);
+
+                if (balance === 0 && hasChanges) {
+                    $("#saveStorageBtn").prop("disabled", false);
+                } else {
+                    $("#saveStorageBtn").prop("disabled", true);
+                }
+            } else {
+                $("#balanceDisplay").prop("hidden", true);
+            }
+
+            $(document).find(".ItemList").html(contentList);
+
+            if (!document.getElementById('_rtStyles')) {
+                const s = document.createElement('style');
+                s.id = '_rtStyles';
+                s.textContent = `
+                    #_rtTip {
+                        position: fixed; z-index: 99999; pointer-events: none;
+                        background: #1e293b; color: #cbd5e1;
+                        border: 1px solid rgba(148,163,184,.15);
+                        border-radius: 8px; padding: 7px 11px;
+                        min-width: 160px; max-width: 260px;
+                        box-shadow: 0 6px 18px rgba(0,0,0,.3);
+                        font-size: .75rem; line-height: 1.4;
+                        opacity: 0; transition: opacity .12s;
+                    }
+                    #_rtTip._rtVisible { opacity: 1; }
+                    ._rt-row {
+                        display: flex; justify-content: space-between;
+                        align-items: center; gap: 12px; padding: 2px 0;
+                    }
+                    ._rt-name { color: #e2e8f0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                    ._rt-qty  { white-space: nowrap; font-weight: 700; color: #fbbf24; flex-shrink: 0; }
+                `;
+                document.head.appendChild(s);
+            }
+
+            if (!document.getElementById('_rtTip')) {
+                $('<div id="_rtTip"></div>').appendTo('body');
+            }
+
+            $(document).off('mouseenter.rtip mouseleave.rtip mousemove.rtip')
+                .on('mouseenter.rtip', '.reservedTooltipBadge', function () {
+                    const html = $(this).attr('data-rtip');
+                    if (!html) return;
+                    $('#_rtTip').html(html).addClass('_rtVisible');
+                })
+                .on('mouseleave.rtip', '.reservedTooltipBadge', function () {
+                    $('#_rtTip').removeClass('_rtVisible');
+                })
+                .on('mousemove.rtip', '.reservedTooltipBadge', function (e) {
+                    const tip = document.getElementById('_rtTip');
+                    if (!tip) return;
+                    const tw = tip.offsetWidth, th = tip.offsetHeight;
+                    const vw = window.innerWidth,  vh = window.innerHeight;
+                    let x = e.clientX + 12, y = e.clientY - th - 10;
+                    if (x + tw > vw - 8) x = e.clientX - tw - 12;
+                    if (y < 8)           y = e.clientY + 18;
+                    tip.style.left = x + 'px';
+                    tip.style.top  = y + 'px';
+                });
+        }
     }
 
     function LoadPrices(prices) {
@@ -1077,7 +1159,7 @@ $(document).ready(function () {
 
 
     $(document).on('click', '#storageBtns button', function () {
-        lastScanBuyID = null; // Reset QR scanning session
+        lastScanBuyID = '__not_started__'; // Reset QR scanning session
         console.log("storageBtns");
         listEdit = {}; // Reset edits when entering mode
         mode = $(this).data('mode'); // edit, buy, discharge
@@ -1214,7 +1296,7 @@ $(document).ready(function () {
         providerBuyNr = null;
         providerBuyOrdered = 0;
         providerBuyShipped = 0;
-        lastScanBuyID = null;
+        lastScanBuyID = '__not_started__';
         scannedPackets = {};
         mode = null;
     });
@@ -1310,6 +1392,10 @@ $(document).ready(function () {
             allowEscapeKey: false,
             showConfirmButton: false
         });
+
+        const printedLabels = []; // Track labels printed in this session
+        const originalMode = mode; // Capturar antes del reset async
+        const sessionBuyID = lastScanBuyID === '__not_started__' ? null : lastScanBuyID; // Compra de la sesión de escaneo
 
         try {
             for (const [key, value] of operations) {
@@ -1407,9 +1493,10 @@ $(document).ready(function () {
                     });
                 });
 
-                // Label Printing Logic (Optional but requested for Buy mode and Packets)
-                if (mode === 'buy' && packet_id !== null && isAdd) {
+                // Label Printing Logic (buy y edit: siempre que se agreguen paquetes)
+                if ((originalMode === 'buy' || originalMode === 'edit') && packet_id !== null && isAdd) {
                     try {
+                        const labelPurchaseNr = originalMode === 'buy' ? providerBuyNr : sessionBuyID;
                         await new Promise((resolve) => {
                             $.ajax({
                                 url: `${urlAPI}label`,
@@ -1417,12 +1504,13 @@ $(document).ready(function () {
                                 data: JSON.stringify({
                                     id: temp,
                                     amount: packet_id.toString(),
-                                    purchase_number: providerBuyNr.toString(),
+                                    purchase_number: labelPurchaseNr !== null && labelPurchaseNr !== undefined ? labelPurchaseNr.toString() : null,
                                     copies: quantity
                                 }),
                                 contentType: "application/json",
                                 headers: { 'Authorization': `Bearer ${apiKey}` },
                                 success: function (res) {
+                                    printedLabels.push({ packet_id, quantity, purchase_number: labelPurchaseNr });
                                     resolve(res);
                                 },
                                 error: function (err) {
@@ -1437,13 +1525,7 @@ $(document).ready(function () {
                 }
             }
 
-            Swal.fire({
-                title: "Operacion Exitosa",
-                text: "Todos los cambios han sido guardados.",
-                icon: "success"
-            });
-
-            // Reset UI
+            // Reset UI antes de preguntar sobre etiquetas
             $("#storageBtns").removeAttr("hidden");
             $(".itemCard #summary").attr("hidden", true);
             $(".itemCard #actions").attr("hidden", true);
@@ -1453,13 +1535,158 @@ $(document).ready(function () {
             $(".summary-text").text("-");
             listEdit = {};
             mode = null;
+            const savedProviderBuyNr = providerBuyNr;
             providerBuyID = null;
             providerBuyNr = null;
             providerBuyOrdered = 0;
             providerBuyShipped = 0;
-            lastScanBuyID = null;
+            lastScanBuyID = '__not_started__';
             scannedPackets = {};
             updateItem();
+
+            // Preguntar sobre etiquetas si se imprimieron
+            if (printedLabels.length > 0) {
+                // Resumen de etiquetas impresas
+                let labelsHtml = '<ul class="list-group text-start mb-3">';
+                printedLabels.forEach(l => {
+                    labelsHtml += `<li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-tag-fill text-primary me-2"></i>Paquete de <strong>${l.packet_id}</strong> pzs</span>
+                        <span class="badge bg-primary rounded-pill">${l.quantity} etiqueta(s)</span>
+                    </li>`;
+                });
+                labelsHtml += '</ul>';
+
+                const labelResult = await Swal.fire({
+                    title: '<i class="bi bi-printer"></i> Etiquetas Impresas',
+                    html: `
+                        <p class="text-muted mb-3">Se enviaron a imprimir las siguientes etiquetas:</p>
+                        ${labelsHtml}
+                        <p class="fw-bold">¿Salieron todas las etiquetas correctamente?</p>
+                    `,
+                    icon: 'question',
+                    showDenyButton: true,
+                    showCancelButton: false,
+                    confirmButtonText: '<i class="bi bi-check-lg"></i> Sí, todas OK',
+                    denyButtonText: '<i class="bi bi-printer"></i> Reimprimir',
+                    confirmButtonColor: '#198754',
+                    denyButtonColor: '#0d6efd'
+                });
+
+                if (labelResult.isDenied) {
+                    // Construir opciones de reimpreisón
+                    let reprintOptionsHtml = '';
+                    printedLabels.forEach((l, idx) => {
+                        reprintOptionsHtml += `
+                        <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
+                            <div class="text-start">
+                                <strong>Paquete ${l.packet_id} pzs</strong>
+                                <div class="text-muted" style="font-size:0.85rem;">Impresas originalmente: ${l.quantity}</div>
+                            </div>
+                            <div style="width: 120px;">
+                                <div class="input-group input-group-sm">
+                                    <button class="btn btn-outline-secondary" type="button"
+                                        onclick="let el=document.getElementById('reprintQty_${idx}'); el.value=Math.max(0,parseInt(el.value||0)-1);">
+                                        <i class="bi bi-dash"></i>
+                                    </button>
+                                    <input type="number" id="reprintQty_${idx}" class="form-control text-center"
+                                        value="${l.quantity}" min="0" max="${l.quantity}"
+                                        oninput="this.value=Math.min(${l.quantity},Math.max(0,parseInt(this.value.replace(/[^0-9]/g,'')||0)))">
+                                    <button class="btn btn-outline-secondary" type="button"
+                                        onclick="let el=document.getElementById('reprintQty_${idx}'); el.value=Math.min(${l.quantity},parseInt(el.value||0)+1);">
+                                        <i class="bi bi-plus"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>`;
+                    });
+
+                    const reprintResult = await Swal.fire({
+                        title: '<i class="bi bi-printer"></i> Reimprimir Etiquetas',
+                        html: `
+                            <p class="text-muted mb-3">Ajusta la cantidad a reimprimir por cada paquete:</p>
+                            <div class="px-2">${reprintOptionsHtml}</div>
+                        `,
+                        showCancelButton: true,
+                        confirmButtonText: '<i class="bi bi-printer-fill"></i> Reimprimir',
+                        cancelButtonText: 'Cancelar',
+                        confirmButtonColor: '#0d6efd',
+                        preConfirm: () => {
+                            const reprints = printedLabels.map((l, idx) => ({
+                                packet_id: l.packet_id,
+                                max: l.quantity,
+                                quantity: parseInt(document.getElementById(`reprintQty_${idx}`)?.value || 0)
+                            })).filter(r => r.quantity > 0);
+
+                            const over = reprints.find(r => r.quantity > r.max);
+                            if (over) {
+                                Swal.showValidationMessage(`No puedes reimprimir más de ${over.max} etiqueta(s) del paquete de ${over.packet_id} pzs.`);
+                                return false;
+                            }
+                            return reprints;
+                        }
+                    });
+
+                    if (reprintResult.isConfirmed && reprintResult.value.length > 0) {
+                        Swal.fire({
+                            html: new sweet_loader().loader("Reimprimiendo..."),
+                            showConfirmButton: false,
+                            allowOutsideClick: false,
+                            allowEscapeKey: false
+                        });
+
+                        for (const reprint of reprintResult.value) {
+                            try {
+                                await new Promise((resolve) => {
+                                    $.ajax({
+                                        url: `${urlAPI}label`,
+                                        type: "POST",
+                                        data: JSON.stringify({
+                                            id: temp,
+                                            amount: reprint.packet_id.toString(),
+                                            purchase_number: (originalMode === 'buy' ? savedProviderBuyNr : sessionBuyID) != null
+                                                ? (originalMode === 'buy' ? savedProviderBuyNr : sessionBuyID).toString()
+                                                : null,
+                                            copies: reprint.quantity
+                                        }),
+                                        contentType: "application/json",
+                                        headers: { 'Authorization': `Bearer ${apiKey}` },
+                                        success: resolve,
+                                        error: function (err) {
+                                            console.error("Reprint failed:", err);
+                                            resolve(null);
+                                        }
+                                    });
+                                });
+                            } catch (e) {
+                                console.error("Reprint error:", e);
+                            }
+                        }
+
+                        Swal.fire({
+                            title: "Reimpresión Enviada",
+                            text: "Las etiquetas han sido reenviadas a la impresora.",
+                            icon: "success",
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                        return;
+                    }
+                }
+
+                Swal.fire({
+                    title: "Operacion Exitosa",
+                    text: "Todos los cambios han sido guardados.",
+                    icon: "success",
+                    timer: 1800,
+                    showConfirmButton: false
+                });
+            } else {
+                Swal.fire({
+                    title: "Operacion Exitosa",
+                    text: "Todos los cambios han sido guardados.",
+                    icon: "success"
+                });
+            }
         } catch (error) {
             Swal.fire({
                 title: "Error al guardar",
@@ -1507,41 +1734,54 @@ $(document).ready(function () {
                 headers: { 'Authorization': `Bearer ${apiKey}` }
             });
 
-            if (response.data) {
-                const data = response.data; // { i: "GC-100", b: 5, p: 100, n: 1 }
+            if (response.response && response.response.id) {
+                const data = response.response; // { id: "GS-159", purchase_number: "14", amount: 25 }
 
-                console.log(data, currentItemID);
-                // 1. Verify Item Match
-                if (data.i !== currentItemID) {
-                    new messageTemp('Error de Escaneo', `El QR es del producto ${data.i}, pero estás editando ${currentItemID}`, 'error');
+                // 1. Verificar que el producto coincide
+                if (data.id !== currentItemID) {
+                    new messageTemp('Error de Escaneo', `El QR es del producto ${data.id}, pero estás editando ${currentItemID}`, 'error');
                     return;
                 }
 
-                if (lastScanBuyID !== null && lastScanBuyID != data.b) {
-                    new messageTemp('Error de Escaneo', `Este paquete es de la compra #${data.b}, pero ya escaneaste paquetes de la compra #${lastScanBuyID}. Deben ser del mismo lote.`, 'warning');
+                // 2. Verificar consistencia de compra en la sesión
+                if (lastScanBuyID !== '__not_started__' && lastScanBuyID != data.purchase_number) {
+                    const motivo = lastScanBuyID === null
+                        ? `Ya se registró un escaneo sin orden de compra. Todos los paquetes deben ser del mismo lote.`
+                        : `Este paquete es de la compra #${data.purchase_number}, pero ya escaneaste de la compra #${lastScanBuyID}. Deben ser del mismo lote.`;
+                    new messageTemp('Lote Inconsistente', motivo, 'warning');
                     return;
                 }
 
-                const packetCard = $(`.itemCard[id="${data.p}"]`);
+                // 3. Verificar que el paquete existe en inventario
+                const packetCard = $(`.itemCard[id="${data.amount}"]`);
                 if (packetCard.length === 0) {
-                    new messageTemp('Error de Escaneo', `El paquete de ${data.p} no existe en el inventario actual de este producto.`, 'error');
+                    new messageTemp('Error de Escaneo', `El paquete de ${data.amount} no existe en el inventario actual de este producto.`, 'error');
                     return;
                 }
 
                 const initialQty = parseInt(packetCard.find('#actions .card-body').attr('data-initial-qty')) || 0;
-                const currentChange = listEdit[data.p] || 0;
+                const currentChange = listEdit[data.amount] || 0;
                 if (initialQty + currentChange <= 0) {
-                    new messageTemp('Error de Inventario', `No puedes restar más paquetes de ${data.p}. El inventario llegaría a 0.`, 'warning');
+                    new messageTemp('Error de Inventario', `No puedes restar más paquetes de ${data.amount}. El inventario llegaría a 0.`, 'warning');
                     return;
                 }
 
-                if (lastScanBuyID === null) lastScanBuyID = data.b;
+                // Fijar la compra de la sesión al primer escaneo
+                if (lastScanBuyID === '__not_started__') lastScanBuyID = data.purchase_number;
 
-                scannedPackets[data.p] = (scannedPackets[data.p] || 0) + 1;
-                listEdit[data.p] = (listEdit[data.p] || 0) - 1;
+                scannedPackets[data.amount] = (scannedPackets[data.amount] || 0) + 1;
+                listEdit[data.amount] = (listEdit[data.amount] || 0) - 1;
 
+                const pkgLabel = data.purchase_number ? `Compra #${data.purchase_number}` : 'Sin orden de compra';
+                new messageTemp('Paquete Escaneado', `Paquete de ${data.amount} pzs restado. ${pkgLabel}`, 'success');
 
-                packetCard.find('.summary-text').text(listEdit[data.p] == 0 ? "-" : (listEdit[data.p] > 0 ? "+" + listEdit[data.p] : listEdit[data.p]))
+                packetCard.find('.summary-text').text(listEdit[data.amount] == 0 ? "-" : (listEdit[data.amount] > 0 ? "+" + listEdit[data.amount] : listEdit[data.amount]));
+
+                // Actualizar el stepper visual
+                const stepperInput = packetCard.find('#StepperValue');
+                stepperInput.val(parseInt(stepperInput.val()) - 1);
+
+                updateItem();
             } else {
                 new messageTemp('QR Inválido', response.response || 'No se pudo verificar el código', 'error');
             }
@@ -1657,14 +1897,22 @@ $(document).ready(function () {
             if (result.isConfirmed) {
                 const { packSize, qty } = result.value;
 
-                // Manual scan doesn't enforce same batch as QR, can be false
-                if (lastScanBuyID === null) lastScanBuyID = false;
+                // Verificar consistencia: si ya se escaneó un QR con compra definida, bloquear manual
+                if (lastScanBuyID !== '__not_started__' && lastScanBuyID !== null) {
+                    new messageTemp('Lote Inconsistente',
+                        `Ya escaneaste paquetes de la compra #${lastScanBuyID}. No puedes mezclar con retiro manual (sin compra).`,
+                        'warning'
+                    );
+                    return;
+                }
 
-                // Track and Subtract for each unit
+                // El retiro manual fija la compra de la sesión como null (sin orden)
+                if (lastScanBuyID === '__not_started__') lastScanBuyID = null;
+
                 scannedPackets[packSize] = (scannedPackets[packSize] || 0) + qty;
                 listEdit[packSize] = (listEdit[packSize] || 0) - qty;
 
-                new messageTemp('Retiro Manual Registrado', `Se restó -${qty} al paquete de ${packSize} (Ingreso Manual)`, 'success');
+                new messageTemp('Retiro Manual Registrado', `Se restó -${qty} al paquete de ${packSize} (Sin orden de compra)`, 'success');
                 updateItem();
             }
         });

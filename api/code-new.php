@@ -138,7 +138,18 @@ if (isset($_POST['Accounting'])) {
 
             $event = json_encode([['event' => 0, "coment" => "Su Compra Ya Esta Lista Para Enviar O Recibir", "date" => $currentDateTime]]);
 
-            $GLOBALS["sql"] = "INSERT INTO `sales`(`uuid`, `nr`, `type`, `info`, `buy`, `advanced`, `paids`, `event`) VALUES ( '" . UUIDv4() . "', " . $_POST['nr'] . ", " . $_POST['type'] . ", AES_ENCRYPT('" . $row["info"] . "', '" . CLAVE_AES . "'), '" . $row['buy'] . "', '" . json_encode($addtionals) . "', AES_ENCRYPT('[]','" . CLAVE_AES . "'), '" . $event . "')";
+            // PinesJM solo crea notas (type=1), obtener nr auto-incrementado de la tabla sequences
+            $saleType = 1;
+            $seqField = 'nr_type_1';
+            $seqResult = mysqli_query($conn, "SELECT current_value FROM sequences WHERE name = '$seqField' LIMIT 1");
+            if (!$seqResult || mysqli_num_rows($seqResult) == 0) {
+                die(json_encode(["success" => false, "message" => "Error: No se encontró la secuencia '$seqField' en la tabla sequences"]));
+            }
+            $seqRow = mysqli_fetch_assoc($seqResult);
+            $nr = intval($seqRow['current_value']) + 1;
+            mysqli_query($conn, "UPDATE sequences SET current_value = $nr WHERE name = '$seqField'");
+
+            $GLOBALS["sql"] = "INSERT INTO `sales`(`uuid`, `nr`, `type`, `info`, `buy`, `advanced`, `paids`, `event`) VALUES ( '" . UUIDv4() . "', " . $nr . ", " . $saleType . ", AES_ENCRYPT('" . $row["info"] . "', '" . CLAVE_AES . "'), '" . $row['buy'] . "', '" . json_encode($addtionals) . "', AES_ENCRYPT('[]','" . CLAVE_AES . "'), '" . $event . "')";
         }
     }
 
