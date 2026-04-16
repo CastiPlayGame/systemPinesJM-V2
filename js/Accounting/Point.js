@@ -961,12 +961,11 @@ class VerifyPass {
             }
         });
 
-        const cont = $(document).find("#verifyList");
-        cont.find("#codePassed").html(fullyVerifiedCount + " / " + totalItems);
+        $(document).find("#codePassed").html(fullyVerifiedCount + " / " + totalItems);
         if (fullyVerifiedCount === totalItems && totalItems > 0) {
-            cont.parent().find("#finishBuy").prop("disabled", false);
+            $(document).find("#finishBuy").prop("disabled", false);
         } else {
-            cont.parent().find("#finishBuy").prop("disabled", true);
+            $(document).find("#finishBuy").prop("disabled", true);
         }
     }
 
@@ -1035,42 +1034,46 @@ class VerifyPass {
                     const pct = Math.min(100, Math.round((scanned / req) * 100));
                     const done = scanned >= req;
                     const barColor = done ? '#22c55e' : (scanned > 0 ? '#f59e0b' : '#9ca3af');
-                    const icons = (hasQR  ? '<i class="bi bi-qr-code" style="font-size:.65rem;"></i>' : '')
-                                + (hasBar ? '<i class="bi bi-upc-scan ms-1" style="font-size:.65rem;"></i>' : '');
+                    const icons = (hasQR  ? '<i class="bi bi-qr-code" style="font-size:.85rem;"></i>' : '')
+                                + (hasBar ? '<i class="bi bi-upc-scan ms-1" style="font-size:.85rem;"></i>' : '');
                     packsHtml += `
-                    <div class="mb-2" style="cursor:pointer;" onclick="new VerifyPass().showScanHistory('${key}','${vol}')" title="Ver historial x${vol}">
-                        <div class="d-flex justify-content-between align-items-center mb-1" style="font-size:.72rem;">
+                    <div class="mb-3" style="cursor:pointer;" onclick="new VerifyPass().showScanHistory('${key}','${vol}')" title="Ver historial x${vol}">
+                        <div class="d-flex justify-content-between align-items-center mb-1" style="font-size:.95rem;">
                             <span style="color:#64748b;">×${vol} <strong style="color:${done?'#16a34a':'#1e293b'}">${scanned}/${req}</strong></span>
                             <span style="color:#94a3b8;">${icons}</span>
                         </div>
-                        <div style="height:5px;background:#e2e8f0;border-radius:3px;overflow:hidden;">
-                            <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width .3s;"></div>
+                        <div style="height:11px;background:#e2e8f0;border-radius:6px;overflow:hidden;">
+                            <div style="height:100%;width:${pct}%;background:${barColor};border-radius:6px;transition:width .3s;"></div>
                         </div>
                     </div>`;
                 });
             }
 
             const badge = isVerified
-                ? `<span style="font-size:.6rem;padding:2px 5px;border-radius:10px;background:#dcfce7;color:#166534;"><i class="bi bi-check-lg"></i> OK</span>`
+                ? `<span style="font-size:.85rem;padding:4px 10px;border-radius:10px;background:#dcfce7;color:#166534;white-space:nowrap;"><i class="bi bi-check-lg"></i> OK</span>`
                 : isPartial
-                ? `<span style="font-size:.6rem;padding:2px 5px;border-radius:10px;background:#fef3c7;color:#92400e;"><i class="bi bi-hourglass-split"></i> Parcial</span>`
-                : `<span style="font-size:.6rem;padding:2px 5px;border-radius:10px;background:#f3f4f6;color:#6b7280;"><i class="bi bi-clock"></i> Pendiente</span>`;
+                ? `<span style="font-size:.85rem;padding:4px 10px;border-radius:10px;background:#fef3c7;color:#92400e;white-space:nowrap;"><i class="bi bi-hourglass-split"></i> Parcial</span>`
+                : `<span style="font-size:.85rem;padding:4px 10px;border-radius:10px;background:#f3f4f6;color:#6b7280;white-space:nowrap;"><i class="bi bi-clock"></i> Pendiente</span>`;
 
             const revertBtn = isVerified
-                ? `<button class="btn btn-sm w-100 mt-2" style="font-size:.65rem;padding:2px 6px;border:1px solid #86efac;color:#166534;background:transparent;"
+                ? `<button class="btn btn-outline-secondary w-100 mt-2" style="font-size:.9rem;"
                        onclick="new VerifyPass().removeVerifiedItem('${key}')">
                        <i class="bi bi-arrow-counterclockwise"></i> Revertir
                    </button>` : '';
+            const manualBtn = !isVerified
+                ? `<button class="btn btn-outline-primary w-100 mt-2" style="font-size:.85rem;"
+                       onclick="new VerifyPass().openManualScan('${key}')">
+                       <i class="bi bi-upc-scan"></i> Manual
+                   </button>` : '';
 
-            const $col = $(`<div class="col-6 col-sm-4 col-md-3 col-lg-2">
-                <div class="h-100 d-flex flex-column p-2" style="background:${bgColor};border:1.5px solid ${borderColor};border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.06);transition:border .2s;">
-                    <div class="d-flex justify-content-between align-items-start mb-1">
-                        <span class="fw-bold text-truncate" style="font-size:.85rem;max-width:72%;color:#1e293b;" title="${item.code}">${item.code}</span>
+            const $col = $(`<div class="col-2">
+                <div class="h-100 d-flex flex-column p-4" style="background:${bgColor};border:2px solid ${borderColor};border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,.09);transition:border .2s,background .2s;">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="fw-bold text-truncate" style="font-size:1.15rem;max-width:65%;color:#1e293b;" title="${item.code}">${item.code}</span>
                         ${badge}
                     </div>
-                    <div class="mb-2" style="font-size:.68rem;color:#94a3b8;">Dep. ${item.depo}</div>
                     <div class="flex-grow-1">${packsHtml}</div>
-                    ${revertBtn}
+                    ${revertBtn}${manualBtn}
                 </div>
             </div>`);
 
@@ -1137,6 +1140,129 @@ class VerifyPass {
         }
         this.updateTableCodes();
         this.updateVerify();
+    }
+
+    async openManualScan(itemId) {
+        const itemData = Session.val.items[itemId];
+        if (!itemData) return;
+        if (!itemData.scannedInfo) itemData.scannedInfo = {};
+        const inputCode = itemData.code;
+
+        const pendingPacks = [];
+        $.each(itemData.packs, function(vol, reqQty) {
+            let curr = 0;
+            if (itemData.scannedInfo[vol]) itemData.scannedInfo[vol].forEach(s => curr += parseInt(s.qty));
+            const rem = parseInt(reqQty) - curr;
+            if (rem > 0) pendingPacks.push({ vol, remaining: rem });
+        });
+
+        if (pendingPacks.length === 0) {
+            Swal.fire('Completado', 'El producto ya tiene todas las cajas verificadas.', 'info');
+            return;
+        }
+
+        const steppersHtml = pendingPacks.map(p => `
+            <div class="d-flex align-items-center justify-content-between mb-2 px-2 py-2 rounded"
+                 style="background:#f8fafc;border:1.5px solid #e2e8f0;">
+                <div>
+                    <div class="fw-bold" style="font-size:.88rem;color:#1e293b;">\xD7${p.vol} pzs</div>
+                    <div style="font-size:.7rem;color:#94a3b8;">Faltan: ${p.remaining}</div>
+                </div>
+                <div class="input-group input-group-sm" style="width:110px;">
+                    <button class="btn verifyStepperBtn" type="button" data-action="subtract" data-vol="${p.vol}"
+                            style="background:#1e293b;color:#fff;border:none;border-radius:6px 0 0 6px;">
+                        <i class="bi bi-dash-lg"></i>
+                    </button>
+                    <input type="text" id="stepVol_${p.vol}" class="form-control text-center border-0 fw-bold"
+                           style="background:#f1f5f9;font-size:.9rem;" value="0" min="0" max="${p.remaining}"
+                           oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+                    <button class="btn verifyStepperBtn" type="button" data-action="add" data-vol="${p.vol}"
+                            style="background:#1e293b;color:#fff;border:none;border-radius:0 6px 6px 0;">
+                        <i class="bi bi-plus-lg"></i>
+                    </button>
+                </div>
+            </div>`).join('');
+
+        let _khIdx = 0;
+        const kh = function(ev) {
+            const inputs = Array.from(document.querySelectorAll('[id^="stepVol_"]'));
+            if (!inputs.length) return;
+            const fi = _khIdx < inputs.length ? _khIdx : 0;
+            if (ev.key === '+' || ev.key === '=') {
+                ev.preventDefault();
+                const t = inputs[fi];
+                t.value = Math.min(parseInt(t.max), (parseInt(t.value) || 0) + 1);
+            } else if (ev.key === '-') {
+                ev.preventDefault();
+                const t = inputs[fi];
+                t.value = Math.max(0, (parseInt(t.value) || 0) - 1);
+            } else if (ev.key === 'ArrowDown' || ev.key === 'ArrowRight') {
+                ev.preventDefault();
+                _khIdx = fi < inputs.length - 1 ? fi + 1 : 0;
+                inputs[_khIdx].focus();
+            } else if (ev.key === 'ArrowUp' || ev.key === 'ArrowLeft') {
+                ev.preventDefault();
+                _khIdx = fi > 0 ? fi - 1 : inputs.length - 1;
+                inputs[_khIdx].focus();
+            }
+        };
+
+        const { value: entries } = await Swal.fire({
+            title: `<span style="font-size:.95rem;">${inputCode} <span style="color:#94a3b8;font-weight:400;">— Manual</span></span>`,
+            html: `<p class="text-muted mb-3" style="font-size:.78rem;">Indica cuántas cajas confirmas físicamente por tamaño</p>
+                   <div style="max-height:300px;overflow-y:auto;">${steppersHtml}</div>`,
+            showCancelButton: true,
+            confirmButtonText: 'Confirmar',
+            cancelButtonText: 'Cancelar',
+            customClass: { confirmButton: 'btn btn-dark btn-sm rounded-pill px-4',
+                           cancelButton:  'btn btn-outline-secondary btn-sm rounded-pill px-3' },
+            didOpen: () => {
+                _khIdx = 0;
+                document.querySelectorAll('.verifyStepperBtn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const vol = this.dataset.vol, act = this.dataset.action;
+                        const inp = document.getElementById(`stepVol_${vol}`);
+                        inp.value = act === 'add' ? Math.min(parseInt(inp.max), (parseInt(inp.value)||0)+1)
+                                                  : Math.max(0, (parseInt(inp.value)||0)-1);
+                    });
+                });
+                Array.from(document.querySelectorAll('[id^="stepVol_"]')).forEach((inp, i) => {
+                    inp.addEventListener('focus', () => { _khIdx = i; });
+                });
+                setTimeout(() => { const f = document.querySelector('[id^="stepVol_"]'); if (f) f.focus(); }, 50);
+                document.addEventListener('keydown', kh, true);
+            },
+            willClose: () => { document.removeEventListener('keydown', kh, true); },
+            preConfirm: () => {
+                const result = []; let valid = true;
+                pendingPacks.forEach(p => {
+                    const inp = document.getElementById(`stepVol_${p.vol}`);
+                    const qty = parseInt(inp.value) || 0;
+                    if (qty > p.remaining) { Swal.showValidationMessage(`Máximo ${p.remaining} cajas de \xD7${p.vol}`); valid = false; }
+                    if (qty > 0) result.push({ vol: p.vol, qty });
+                });
+                if (!valid) return false;
+                if (result.length === 0) { Swal.showValidationMessage('Ingresa al menos 1 caja en algún paquete'); return false; }
+                return result;
+            }
+        });
+
+        if (entries) {
+            const fresh = Session.val.items[itemId];
+            if (!fresh.scannedInfo) fresh.scannedInfo = {};
+            entries.forEach(e => {
+                if (!fresh.scannedInfo[e.vol]) fresh.scannedInfo[e.vol] = [];
+                fresh.scannedInfo[e.vol].push({ buy: null, qty: e.qty, code: inputCode, type: 'old_bar', timestamp: Date.now() });
+            });
+            Session.Save();
+            ttsClass.hablar([{ role: 'speak', content: 'Aceptado manual.' }]);
+            Swal.fire({ position: 'top-end', icon: 'success', title: 'Aceptado: ' + inputCode,
+                        html: `<b>Cajas:</b> ${entries.map(e => `${e.qty}\xD7${e.vol}`).join(', ')}`,
+                        showConfirmButton: false, timer: 1500, toast: true, backdrop: false });
+            new VerifyPass().checkIfItemFullyVerified(itemId);
+            new VerifyPass().updateTableCodes();
+            new VerifyPass().updateVerify();
+        }
     }
 
     getImage(code) {
@@ -1555,7 +1681,26 @@ $(document).ready(async function () {
                                 cont.find('#selectOrigin').html(CoreFunc.loadDeposit(i[1]));
                                 cont.find('input#item_discount').val(i[3]);
                                 cont.find('input#item_discountP').prop("checked", i[4]);
-                                cont.find('#selectOrigin').focus();
+                                if (i[1].length === 1) {
+                                    const rowId = cont.attr('id');
+                                    cont.find('#selectOrigin').val(i[1][0][0]).attr('disabled', true);
+                                    cont.find('#itemDisc').attr('hidden', false);
+                                    Session.val.items[rowId] = {
+                                        'code': inp.val(),
+                                        'depo': i[1][0][0],
+                                        'packs': {},
+                                        'price': cont.find('#price input').val(),
+                                        'discount': [cont.find('input#item_discount').val(), cont.find('input#item_discountP').is(':checked')]
+                                    };
+                                    Session.Save();
+                                    CoreFunc.loadPackets(rowId);
+                                    CoreFunc.newRow();
+                                    if (Object.keys(Session.val.items).length) $('#clearList').attr('disabled', false);
+                                    $('.buyBtn').attr('disabled', true);
+                                    $('.buyBtn i').attr('class', 'bi bi-send-slash h4');
+                                } else {
+                                    cont.find('#selectOrigin').focus();
+                                }
                                 return;
                             }
                         });
@@ -1569,7 +1714,26 @@ $(document).ready(async function () {
                             cont.find('#selectOrigin').html(CoreFunc.loadDeposit(i[1]));
                             cont.find('input#item_discount').val(i[3]);
                             cont.find('input#item_discountP').prop("checked", i[4]);
-                            cont.find('#selectOrigin').focus();
+                            if (i[1].length === 1) {
+                                const rowId = cont.attr('id');
+                                cont.find('#selectOrigin').val(i[1][0][0]).attr('disabled', true);
+                                cont.find('#itemDisc').attr('hidden', false);
+                                Session.val.items[rowId] = {
+                                    'code': inp.val(),
+                                    'depo': i[1][0][0],
+                                    'packs': {},
+                                    'price': cont.find('#price input').val(),
+                                    'discount': [cont.find('input#item_discount').val(), cont.find('input#item_discountP').is(':checked')]
+                                };
+                                Session.Save();
+                                CoreFunc.loadPackets(rowId);
+                                CoreFunc.newRow();
+                                if (Object.keys(Session.val.items).length) $('#clearList').attr('disabled', false);
+                                $('.buyBtn').attr('disabled', true);
+                                $('.buyBtn i').attr('class', 'bi bi-send-slash h4');
+                            } else {
+                                cont.find('#selectOrigin').focus();
+                            }
                             return;
                         }
                     }
@@ -1881,30 +2045,28 @@ $(document).ready(async function () {
                 new messageTemp('Pines Jm', 'Rellene Todas Las Casillas', 'info');
                 return;
             }
+            start_Reset.clearVerifyItems();
             new VerifyPass().updateTableCodes();
 
             cont.closest('.modal-dialog').addClass('modal-fullscreen').removeClass('modal-xl');
 
             btns.find("#backToMain").prop("hidden", false);
-            cont.find("#verifyList").prop("hidden", false);
+            cont.find("#verifyList").removeClass("d-none").addClass("d-flex");
             cont.find("#main").prop("hidden", true);
-            cont.find("#codePassed").html(verifyItemsPass.length + " / " + Object.keys(Session.val.items).length);
+            cont.find("#codePassed").html("0 / " + Object.keys(Session.val.items).length);
             
             // Scroll to top and focus
             $('.modal').animate({ scrollTop: 0 }, 'fast');
             setTimeout(() => cont.find('#codeV').focus(), 100);
 
-            if (verifyItemsPass.length != Object.keys(Session.val.items).length) {
-                $(this).prop("disabled", true);
-            }
+            $(document).find("#finishBuy").prop("disabled", true);
 
 
             cont.find("#codeV").focus();
             $(this).attr("step", 1);
-            $(this).text("Finalizar");
+            $(this).find("span").text("Finalizar");
             $('#sidebar').css('z-index', 40);
         } else if ($(this).attr("step") == 1) {
-            start_Reset.clearVerifyItems();
             start_Reset.stopInterval();
             CoreFunc.completeBuy();
             $(document).find('#sidebar').css('z-index', '1090');
@@ -1918,21 +2080,26 @@ $(document).ready(async function () {
         const btns = $(this).parent();
         const cont = $(this).parent().parent();
         btns.find("#finishBuy").attr("step", 0);
-        btns.find("#finishBuy").text("Siguiente");
+        btns.find("#finishBuy span").text("Siguiente");
         btns.find("#finishBuy").prop("disabled", false);
 
         btns.find("#backToMain").prop("hidden", true);
         cont.find("#main").prop("hidden", false);
-        cont.find("#verifyList").prop("hidden", true);
+        cont.find("#verifyList").addClass("d-none").removeClass("d-flex");
         cont.closest('.modal-dialog').removeClass('modal-fullscreen').addClass('modal-xl');
     });
 
+    // ── Unified verify scanner ──────────────────────────────────────────────────
+    // Handles barcode/QR scanner (auto-timeout 400ms) + manual SKIP+Enter.
+    // No detectInputType, no listener accumulation.
+    var _verifyCallbackRunning = false;
+    var _verifyTimer = null;
 
-    $(document).on('input', '#verifyList #codeV', function () {
-        const cont = $("#verifyList");
-        const item = $(this);
-
-        const verifyCallback = async (inputCode) => {
+    var _verifyCallback = async function(inputCode) {
+        if (_verifyCallbackRunning) return;
+        _verifyCallbackRunning = true;
+        var item = $('#codeV');
+        try {
             if (inputCode.trim().toUpperCase() === 'SKIP') {
                 item.val("");
                 $.each(Session.val.items, function(itemId, itemData) {
@@ -1955,7 +2122,8 @@ $(document).ready(async function () {
                             });
                         }
                     });
-                    new VerifyPass().checkIfItemFullyVerified(itemId);
+                    itemData.scannedInfo.verified = true;
+                    itemData.scannedInfo.completedAt = new Date().toISOString();
                 });
                 Session.Save();
                 new VerifyPass().updateTableCodes();
@@ -2005,7 +2173,6 @@ $(document).ready(async function () {
             }
 
             const checkCode = await new VerifyPass().itemExist(codeToSearch);
-            $(item).data('detectorInitialized', false);
 
             if (checkCode.Reason === "noExist" || checkCode.Reason === "noFound") {
                 if (isQR) Swal.close();
@@ -2037,6 +2204,15 @@ $(document).ready(async function () {
                     if (currentScanned + 1 > maxAllowed) {
                         Swal.fire('Denegado', 'Ya escaneaste todos los paquetes requeridos de ' + qrAmount + '.', 'error');
                         ttsClass.hablar([{ role: "speak", content: "Denegado. Paquetes excedidos." }]);
+                        item.val("");
+                        return;
+                    }
+
+                    const tokenDuplicate = itemData.scannedInfo[qrAmount] &&
+                        itemData.scannedInfo[qrAmount].some(s => s.code === inputCode);
+                    if (tokenDuplicate) {
+                        Swal.fire('Duplicado', 'Este código QR ya fue registrado anteriormente.', 'warning');
+                        ttsClass.hablar([{ role: "speak", content: "Código QR duplicado." }]);
                         item.val("");
                         return;
                     }
@@ -2083,8 +2259,33 @@ $(document).ready(async function () {
                     if (pendingPacks.length === 0) {
                         Swal.fire('Completado', 'El producto ya tiene todas las cajas verificadas.', 'info');
                         item.val("");
+                        setTimeout(() => item.focus(), 300);
                         return;
                     }
+
+                    item.val("");
+
+                    let _sshIdx = 0;
+                    const _swalStepperKeyHandler = function(ev) {
+                        const inputs = Array.from(document.querySelectorAll('[id^="stepVol_"]'));
+                        if (!inputs.length) return;
+                        const fi = _sshIdx < inputs.length ? _sshIdx : 0;
+                        if (ev.key === '+' || ev.key === '=') {
+                            ev.preventDefault();
+                            inputs[fi].value = Math.min(parseInt(inputs[fi].max), (parseInt(inputs[fi].value) || 0) + 1);
+                        } else if (ev.key === '-') {
+                            ev.preventDefault();
+                            inputs[fi].value = Math.max(0, (parseInt(inputs[fi].value) || 0) - 1);
+                        } else if (ev.key === 'ArrowDown' || ev.key === 'ArrowRight') {
+                            ev.preventDefault();
+                            _sshIdx = fi < inputs.length - 1 ? fi + 1 : 0;
+                            inputs[_sshIdx].focus();
+                        } else if (ev.key === 'ArrowUp' || ev.key === 'ArrowLeft') {
+                            ev.preventDefault();
+                            _sshIdx = fi > 0 ? fi - 1 : inputs.length - 1;
+                            inputs[_sshIdx].focus();
+                        }
+                    };
 
                     let steppersHtml = pendingPacks.map(p => `
                         <div class="d-flex align-items-center justify-content-between mb-2 px-2 py-2 rounded"
@@ -2123,6 +2324,7 @@ $(document).ready(async function () {
                         customClass: { confirmButton: 'btn btn-dark btn-sm rounded-pill px-4',
                                        cancelButton:  'btn btn-outline-secondary btn-sm rounded-pill px-3' },
                         didOpen: () => {
+                            _sshIdx = 0;
                             document.querySelectorAll('.verifyStepperBtn').forEach(btn => {
                                 btn.addEventListener('click', function() {
                                     const vol  = this.dataset.vol;
@@ -2133,7 +2335,13 @@ $(document).ready(async function () {
                                     inp.value  = act === 'add' ? Math.min(max, val + 1) : Math.max(0, val - 1);
                                 });
                             });
+                            Array.from(document.querySelectorAll('[id^="stepVol_"]')).forEach((inp, i) => {
+                                inp.addEventListener('focus', () => { _sshIdx = i; });
+                            });
+                            setTimeout(() => { const f = document.querySelector('[id^="stepVol_"]'); if (f) f.focus(); }, 50);
+                            document.addEventListener('keydown', _swalStepperKeyHandler, true);
                         },
+                        willClose: () => { document.removeEventListener('keydown', _swalStepperKeyHandler, true); },
                         preConfirm: () => {
                             const result = [];
                             let valid = true;
@@ -2156,9 +2364,11 @@ $(document).ready(async function () {
                     });
 
                     if (entries) {
+                        const freshItemData = Session.val.items[itemId];
+                        if (!freshItemData.scannedInfo) freshItemData.scannedInfo = {};
                         entries.forEach(e => {
-                            if (!itemData.scannedInfo[e.vol]) itemData.scannedInfo[e.vol] = [];
-                            itemData.scannedInfo[e.vol].push({
+                            if (!freshItemData.scannedInfo[e.vol]) freshItemData.scannedInfo[e.vol] = [];
+                            freshItemData.scannedInfo[e.vol].push({
                                 buy: null,
                                 qty: e.qty,
                                 code: inputCode,
@@ -2166,6 +2376,7 @@ $(document).ready(async function () {
                                 timestamp: Date.now()
                             });
                         });
+                        Session.Save();
 
                         item.val("");
                         ttsClass.hablar([{ role: "speak", content: "Aceptado manual." }]);
@@ -2179,18 +2390,48 @@ $(document).ready(async function () {
                         new VerifyPass().checkIfItemFullyVerified(itemId);
                         new VerifyPass().updateTableCodes();
                         new VerifyPass().updateVerify();
+                        setTimeout(() => item.focus(), 200);
                     } else {
                         item.val("");
+                        setTimeout(() => item.focus(), 200);
                     }
                 }
             }
-        };
+        } finally {
+            _verifyCallbackRunning = false;
+        }
+    };
 
-        if (!$(item).data('detectorInitialized')) {
-            $(item).data('detectorInitialized', true);
-            detectInputType(this, async (code) => {
-                await verifyCallback(code);
-            });
+    $(document).on('keydown.verifyScanner', function(e) {
+        if (!$('#modal').hasClass('show') || $('#verifyList').hasClass('d-none')) return;
+        if (typeof Swal !== 'undefined' && Swal.isVisible() && !document.querySelector('.swal2-toast')) return;
+
+        var codeV = document.getElementById('codeV');
+        if (!codeV) return;
+
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            clearTimeout(_verifyTimer);
+            var val = (codeV.value || '').trim().toUpperCase();
+            codeV.value = '';
+            if (val) _verifyCallback(val);
+            return;
+        }
+
+        if (e.key.length !== 1 || e.ctrlKey || e.altKey || e.metaKey) return;
+
+        if (document.activeElement !== codeV) {
+            e.preventDefault();
+            codeV.focus();
+            codeV.value += e.key.toUpperCase();
+            clearTimeout(_verifyTimer);
+            _verifyTimer = setTimeout(function() {
+                var val = (codeV.value || '').trim().toUpperCase();
+                if (val && val !== 'SKIP') {
+                    codeV.value = '';
+                    _verifyCallback(val);
+                }
+            }, 400);
         }
     });
 
@@ -2198,6 +2439,21 @@ $(document).ready(async function () {
 
 
 
+
+    $(document).on('hidden.bs.modal', '#modal', function() {
+        clearTimeout(_verifyTimer);
+        _verifyTimer = null;
+        _verifyCallbackRunning = false;
+        const finishBtn = $(document).find('#finishBuy');
+        if (finishBtn.attr('step') == 1) {
+            finishBtn.attr('step', 0).prop('disabled', false).find('span').text('Siguiente');
+            $(document).find('#backToMain').prop('hidden', true);
+            $(document).find('#verifyList').addClass('d-none').removeClass('d-flex');
+            $(document).find('#main').prop('hidden', false);
+            $(document).find('.modal-dialog').removeClass('modal-fullscreen').addClass('modal-xl');
+            $('#sidebar').css('z-index', '1090');
+        }
+    });
 
     $(document).on('click', "#clearList", function () {
         start_Reset.resetComplete();

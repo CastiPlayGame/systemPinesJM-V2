@@ -1895,59 +1895,56 @@ if (isset($_POST['FinishBuy'])) {
         </div>
     </div>
 
-    <div id="verifyList" class="modal-body p-0 d-flex flex-column" hidden style="background:#f1f5f9;min-height:0;flex:1 1 auto;">
+    <div id="verifyList" class="modal-body p-0 d-none flex-column" style="background:#f1f5f9;min-height:0;flex:1 1 auto;">
 
         <!-- Top Scanner Bar -->
-        <div style="background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);padding:14px 20px 16px;">
-            <div class="d-flex align-items-center gap-3 flex-wrap">
+        <div style="padding:14px 16px 4px;">
+            <div style="background:#ffffff;border-radius:16px;padding:14px 20px;box-shadow:0 4px 18px rgba(0,0,0,.1),0 1px 4px rgba(0,0,0,.06);">
+                <div class="d-flex align-items-center gap-3 flex-wrap">
 
-                <div style="min-width:160px;">
-                    <div class="fw-bold text-white mb-0" style="font-size:.95rem;letter-spacing:.01em;">
-                        <i class="bi bi-patch-check me-1" style="color:#60a5fa;"></i>Verificación de Pasillo
+                    <div style="min-width:150px;">
+                        <div class="fw-semibold mb-0" style="font-size:1rem;color:#1e293b;letter-spacing:.01em;">
+                            <i class="bi bi-patch-check-fill me-1" style="color:#3b82f6;"></i>Verificación
+                        </div>
+                        <div style="font-size:.72rem;color:#94a3b8;margin-top:3px;">Escanea o escribe SKIP para omitir</div>
                     </div>
-                    <div style="font-size:.7rem;color:#94a3b8;margin-top:2px;">Escanea los productos para confirmar envío</div>
-                </div>
 
-                <div class="flex-grow-1" style="max-width:520px;margin:0 auto;">
-                    <div class="input-group" style="box-shadow:0 2px 12px rgba(0,0,0,.3);">
-                        <span class="input-group-text" style="background:rgba(96,165,250,.12);border:1.5px solid rgba(96,165,250,.3);border-right:none;color:#60a5fa;font-size:1rem;">
-                            <i class="bi bi-upc-scan"></i>
-                        </span>
-                        <input type="text" id="codeV"
-                               class="form-control"
-                               placeholder="Escanea el código... (escribe SKIP para omitir)"
-                               oninput="this.value = this.value.toUpperCase()"
-                               autocomplete="off"
-                               style="background:rgba(255,255,255,.07);border:1.5px solid rgba(96,165,250,.3);border-left:none;color:#f8fafc;font-size:.92rem;caret-color:#60a5fa;"
-                               onfocus="this.style.background=\'rgba(255,255,255,.13)\';this.style.outline=\'none\';"
-                               onblur="this.style.background=\'rgba(255,255,255,.07)\';this.style.boxShadow=\'\';">
+                    <div class="flex-grow-1" style="max-width:520px;margin:0 auto;">
+                        <div style="display:flex;align-items:center;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:999px;padding:7px 16px;gap:10px;transition:border-color .2s;">
+                            <i class="bi bi-upc-scan" style="color:#3b82f6;font-size:1.05rem;flex-shrink:0;"></i>
+                            <input type="text" id="codeV"
+                                   placeholder="Escanea el código..."
+                                   oninput="this.value = this.value.toUpperCase()"
+                                   autocomplete="off"
+                                   style="background:transparent;border:none;outline:none;color:#1e293b;font-size:.95rem;caret-color:#3b82f6;width:100%;"
+                                   onfocus="this.closest(\'div[style*=border-radius]\').style.borderColor=\'#3b82f6\'"
+                                   onblur="this.closest(\'div[style*=border-radius]\').style.borderColor=\'#e2e8f0\'">
+                        </div>
                     </div>
-                </div>
 
-                <div class="text-center" style="min-width:72px;">
-                    <div class="fw-bold text-white" id="codePassed" style="font-size:1.55rem;line-height:1.1;font-variant-numeric:tabular-nums;">0 / 0</div>
-                    <div style="font-size:.6rem;color:#64748b;letter-spacing:.08em;text-transform:uppercase;margin-top:1px;">Revisados</div>
-                </div>
+                    <div style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:999px;padding:6px 18px;text-align:center;white-space:nowrap;">
+                        <div class="fw-bold" id="codePassed" style="font-size:1.3rem;line-height:1.1;font-variant-numeric:tabular-nums;color:#1e293b;">0 / 0</div>
+                        <div style="font-size:.62rem;color:#94a3b8;letter-spacing:.07em;text-transform:uppercase;margin-top:2px;">Revisados</div>
+                    </div>
 
+                </div>
             </div>
         </div>
 
         <!-- Product Grid -->
         <div class="flex-grow-1 p-3" style="overflow-y:auto;">
-            <div class="row g-2" id="verifyGrid" style="align-content:flex-start;"></div>
+            <div class="row g-3" id="verifyGrid" style="align-content:flex-start;"></div>
         </div>
 
     </div>
 
 
     </div>
-    <div class="modal-footer" style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:8px 16px;gap:6px;">
-        <button type="button" class="btn btn-sm rounded-pill px-3" id="backToMain" hidden
-                style="border:1.5px solid #cbd5e1;color:#475569;background:transparent;">
+    <div class="modal-footer" style="background:#f8fafc;border-top:1px solid #e2e8f0;">
+        <button type="button" class="btn btn-outline-dark" id="backToMain" hidden>
             <i class="bi bi-arrow-left me-1"></i>Atrás
         </button>
-        <button type="button" class="btn btn-sm rounded-pill px-4 text-white" id="finishBuy" step="0"
-                style="background:#1e293b;border:none;">
+        <button type="button" class="btn btn-dark" id="finishBuy" step="0">
             <i class="bi bi-check-circle me-1"></i><span>Siguiente</span>
         </button>
     </div>';
