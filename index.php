@@ -61,6 +61,8 @@ if (isset($_GET['api_key'])) {
     <script src="./js/lib/sweetalert2@11.js"></script>
     <script src="./js/lib/bootstrap.bundle.min.js"></script>
     <script src="./js/lib/jquery.maskMoney.min.js"></script>
+    <script src="./js/lib/qrcode.min.js"></script>
+    <script src="./js/lib/pusher.min.js"></script>
     <script src="js/module.js"></script>
     <script src="./js/lib/jquery-ui.js"></script>
     <script src="./js/lib/chart.js"></script>

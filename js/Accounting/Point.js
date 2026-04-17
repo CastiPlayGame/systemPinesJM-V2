@@ -1677,7 +1677,7 @@ $(document).ready(async function () {
                                 cont.find('h1').text(inp.val())
                                 cont.find('#price input').val(i[2])
 
-                                cont.find('#deleteRow,#selectOrigin').attr('hidden', false);
+                                cont.find('#deleteRow,#selectOrigin,#price input').attr('hidden', false);
                                 cont.find('#selectOrigin').html(CoreFunc.loadDeposit(i[1]));
                                 cont.find('input#item_discount').val(i[3]);
                                 cont.find('input#item_discountP').prop("checked", i[4]);
@@ -1718,6 +1718,7 @@ $(document).ready(async function () {
                                 const rowId = cont.attr('id');
                                 cont.find('#selectOrigin').val(i[1][0][0]).attr('disabled', true);
                                 cont.find('#itemDisc').attr('hidden', false);
+                                cont.find('#price input').attr('hidden', false);
                                 Session.val.items[rowId] = {
                                     'code': inp.val(),
                                     'depo': i[1][0][0],
@@ -2050,6 +2051,8 @@ $(document).ready(async function () {
 
             cont.closest('.modal-dialog').addClass('modal-fullscreen').removeClass('modal-xl');
 
+            ScanPairing.start();
+
             btns.find("#backToMain").prop("hidden", false);
             cont.find("#verifyList").removeClass("d-none").addClass("d-flex");
             cont.find("#main").prop("hidden", true);
@@ -2068,6 +2071,7 @@ $(document).ready(async function () {
             $('#sidebar').css('z-index', 40);
         } else if ($(this).attr("step") == 1) {
             start_Reset.stopInterval();
+            ScanPairing.stop();
             CoreFunc.completeBuy();
             $(document).find('#sidebar').css('z-index', '1090');
         }
@@ -2076,6 +2080,7 @@ $(document).ready(async function () {
     $(document).on('click', "#backToMain", function () {
         $('#sidebar').css('z-index', '1090');
         ttsClass.detener();
+        ScanPairing.stop();
         start_Reset.clearVerifyItems();
         const btns = $(this).parent();
         const cont = $(this).parent().parent();
@@ -2088,6 +2093,265 @@ $(document).ready(async function () {
         cont.find("#verifyList").addClass("d-none").removeClass("d-flex");
         cont.closest('.modal-dialog').removeClass('modal-fullscreen').addClass('modal-xl');
     });
+
+    // ── Scan-Pairing (phone → web via Pusher Channels) ─────────────────────────
+    // Flow:
+    //   1. Web generates a session_id when verification starts.
+    //   2. Web subscribes (pusher-js) to public channel `session-<id>`.
+    //   3. Phone scans the QR → gets session_id → POSTs photo to
+    //      newApi/label/scan?session=<id>. Backend runs vision IA, then uses
+    //      the Pusher secret to trigger `scan_result` on `session-<id>`.
+    //   4. Web receives the event and feeds it into _handleScanResult().
+    // The web never publishes; this is a one-way fan-out. Secret stays server-side.
+    var ScanPairing = {
+        pusher:   null,
+        channel:  null,
+        session:  null,
+        active:   false,
+
+        _genSession: function() {
+            return (Date.now().toString(36) + Math.random().toString(36).slice(2, 10)).toUpperCase();
+        },
+
+        _channelName: function() {
+            return 'session-' + this.session;
+        },
+
+        _payload: function() {
+            // Phone has PUSHER_KEY / cluster baked in; only session_id is dynamic.
+            return JSON.stringify({ v: 2, session: this.session });
+        },
+
+        _qrReady: function() {
+            // davidshimjs/qrcodejs: global QRCode constructor + CorrectLevel enum
+            return (typeof QRCode !== 'undefined' && typeof QRCode.CorrectLevel !== 'undefined');
+        },
+
+        _drawQr: function(host, text, size) {
+            if (!host) return false;
+            host.innerHTML = '';
+            if (!this._qrReady()) return false;
+            try {
+                new QRCode(host, {
+                    text: text,
+                    width: size,
+                    height: size,
+                    colorDark: '#0f172a',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.M
+                });
+                return true;
+            } catch (e) {
+                console.error('[ScanPair] QR draw:', e);
+                return false;
+            }
+        },
+
+        _setStatus: function(state) {
+            var map = {
+                off:         { text: 'Desconectado',     color: '#94a3b8' },
+                connecting:  { text: 'Conectando...',    color: '#f59e0b' },
+                unavailable: { text: 'Pusher offline',   color: '#ef4444' },
+                live:        { text: 'Escuchando móvil', color: '#3b82f6' },
+                connected:   { text: 'Escaneo recibido', color: '#10b981' },
+                error:       { text: 'Error Pusher',     color: '#ef4444' }
+            };
+            var s = map[state] || map.off;
+            var badge = document.getElementById('pairStatus');
+            var dot   = document.getElementById('pairDot');
+            if (badge) badge.textContent = s.text;
+            if (dot)   dot.style.background = s.color;
+        },
+
+        _renderThumb: function() {
+            var thumb = document.getElementById('pairQrThumb');
+            var sess  = document.getElementById('pairSession');
+            if (sess) sess.textContent = this.session.slice(-6);
+            if (!thumb) return;
+            var ok = this._drawQr(thumb, this._payload(), 40);
+            if (!ok) {
+                thumb.innerHTML = '<i class="bi bi-phone" style="color:#94a3b8;font-size:1.1rem;"></i>';
+            } else {
+                // davidshimjs creates img+canvas; shrink them to fit the round slot
+                var imgs = thumb.querySelectorAll('img,canvas');
+                imgs.forEach(function(el){ el.style.width = '40px'; el.style.height = '40px'; el.style.display = 'block'; });
+            }
+        },
+
+        showLargeQr: function() {
+            if (!this.active || !this.session) return;
+            var self = this;
+            Swal.fire({
+                title: '<span style="font-size:1rem;">Emparejar móvil</span>',
+                html: '<p class="text-muted mb-2" style="font-size:.8rem;">Escanea este QR con la app para enviar escaneos a esta verificación.</p>'
+                    + '<div id="pairQrLarge" style="display:flex;justify-content:center;padding:12px;background:#fff;border-radius:10px;"></div>'
+                    + '<div style="margin-top:10px;font-size:.72rem;color:#94a3b8;letter-spacing:.08em;text-transform:uppercase;">Sesión <b style="color:#1e293b;letter-spacing:.1em;">' + self.session.slice(-6) + '</b></div>'
+                    + '<div style="margin-top:4px;font-size:.7rem;color:#94a3b8;word-break:break-all;">Pusher · ' + PUSHER_CLUSTER + ' · ' + self._channelName() + '</div>',
+                showCloseButton: true,
+                showConfirmButton: false,
+                width: 360,
+                didOpen: function() {
+                    var host = document.getElementById('pairQrLarge');
+                    if (!host) return;
+                    var ok = self._drawQr(host, self._payload(), 240);
+                    if (!ok) {
+                        host.innerHTML = '<div class="text-danger">No se pudo cargar la librería QR.</div>';
+                    }
+                }
+            });
+        },
+
+        _connect: function() {
+            var self = this;
+            if (typeof Pusher === 'undefined') {
+                console.error('[ScanPair] Pusher SDK not loaded');
+                this._setStatus('error');
+                return;
+            }
+
+            // Reuse a single Pusher client across sessions to avoid extra sockets.
+            if (!this.pusher) {
+                // Pusher.logToConsole = true; // enable when debugging
+                this.pusher = new Pusher(PUSHER_KEY, {
+                    cluster: PUSHER_CLUSTER,
+                    forceTLS: true
+                });
+                this.pusher.connection.bind('state_change', function(states) {
+                    if (!self.active) return;
+                    var map = {
+                        initialized: 'connecting',
+                        connecting:  'connecting',
+                        connected:   'live',
+                        unavailable: 'unavailable',
+                        failed:      'error',
+                        disconnected:'off'
+                    };
+                    self._setStatus(map[states.current] || 'connecting');
+                });
+            }
+
+            this._setStatus('connecting');
+            this.channel = this.pusher.subscribe(this._channelName());
+            this.channel.bind('pusher:subscription_succeeded', function() {
+                if (self.active) self._setStatus('live');
+            });
+            this.channel.bind('pusher:subscription_error', function(err) {
+                console.error('[ScanPair] subscription error:', err);
+                self._setStatus('error');
+            });
+            this.channel.bind('scan_result', function(data) {
+                // Phone sent a scan (via backend that triggered this event).
+                self._setStatus('connected');
+                self._handleScanResult(data);
+            });
+        },
+
+        _handleScanResult: async function(data) {
+            // Expected phone payload:
+            //   { ok, code, cb, qty, purchase_number, item: { uuid, id, description } }
+            if (!data || data.ok === false || !data.code) return;
+
+            const codeToSearch = String(data.code).toUpperCase();
+            const inputCode    = String(data.cb || data.code).toUpperCase();
+            const qrAmount     = parseInt(data.qty);
+            const qrBuyNum     = data.purchase_number || null;
+
+            const toast = (icon, title, html, timer) => Swal.fire({
+                position: 'top-end', icon, title, html: html || '',
+                showConfirmButton: false, timer: timer || 1700, toast: true, backdrop: false
+            });
+
+            if (!qrAmount || qrAmount <= 0) {
+                toast('error', 'Móvil: qty inválida', codeToSearch);
+                return;
+            }
+
+            const checkCode = await new VerifyPass().itemExist(codeToSearch);
+
+            if (checkCode.Reason === 'noExist' || checkCode.Reason === 'noFound') {
+                ttsClass.hablar([{ role: 'speak', content: `El código ${codeToSearch}, no se encuentra en la lista` }]);
+                toast('error', 'Móvil: no en lista', codeToSearch);
+                return;
+            }
+            if (checkCode.Reason === 'alreadyCheck') {
+                ttsClass.hablar([{ role: 'speak', content: `El código ${codeToSearch}, ya está verificado` }]);
+                toast('info', 'Móvil: ya verificado', codeToSearch, 1400);
+                return;
+            }
+            if (checkCode.Reason !== 'found') return;
+
+            const itemId   = checkCode.id;
+            const itemData = Session.val.items[itemId];
+            if (!itemData.scannedInfo) itemData.scannedInfo = {};
+
+            if (!itemData.packs[qrAmount]) {
+                toast('error', 'Móvil: paquete no requerido', `×${qrAmount}`);
+                ttsClass.hablar([{ role: 'speak', content: 'Denegado. Paquete no requerido.' }]);
+                return;
+            }
+
+            let maxAllowed = parseInt(itemData.packs[qrAmount] || 0);
+            let currentScanned = 0;
+            if (itemData.scannedInfo[qrAmount]) {
+                itemData.scannedInfo[qrAmount].forEach(s => currentScanned += parseInt(s.qty));
+            }
+            if (currentScanned + 1 > maxAllowed) {
+                toast('error', 'Móvil: excedido', `×${qrAmount}`);
+                ttsClass.hablar([{ role: 'speak', content: 'Denegado. Paquetes excedidos.' }]);
+                return;
+            }
+
+            const dup = itemData.scannedInfo[qrAmount] &&
+                        itemData.scannedInfo[qrAmount].some(s => s.code === inputCode);
+            if (dup) {
+                toast('warning', 'Móvil: duplicado', inputCode, 1500);
+                ttsClass.hablar([{ role: 'speak', content: 'Código QR duplicado.' }]);
+                return;
+            }
+
+            if (!itemData.scannedInfo[qrAmount]) itemData.scannedInfo[qrAmount] = [];
+            itemData.scannedInfo[qrAmount].push({
+                buy: qrBuyNum,
+                qty: 1,
+                code: inputCode,
+                type: 'qr',
+                timestamp: Date.now()
+            });
+            Session.Save();
+
+            ttsClass.hablar([{ role: 'speak', content: 'Paquete QR aceptado desde móvil.' }]);
+            toast('success', 'Móvil: ' + codeToSearch, `<b>Caja:</b> ×${qrAmount}`, 1500);
+
+            new VerifyPass().checkIfItemFullyVerified(itemId);
+            new VerifyPass().updateTableCodes();
+            new VerifyPass().updateVerify();
+        },
+
+        start: function() {
+            if (this.active) return;
+            this.active  = true;
+            this.session = this._genSession();
+            this._renderThumb();
+            this._setStatus('connecting');
+            this._connect();
+        },
+
+        stop: function() {
+            this.active = false;
+            if (this.channel && this.pusher && this.session) {
+                try { this.pusher.unsubscribe(this._channelName()); } catch (e) {}
+            }
+            this.channel = null;
+            this.session = null;
+            this._setStatus('off');
+            var sess  = document.getElementById('pairSession');
+            var thumb = document.getElementById('pairQrThumb');
+            if (sess)  sess.textContent = '—';
+            if (thumb) thumb.innerHTML = '<i class="bi bi-phone" style="color:#94a3b8;font-size:1.1rem;"></i>';
+        }
+    };
+
+    $(document).on('click', '#pairWidget', function() { ScanPairing.showLargeQr(); });
 
     // ── Unified verify scanner ──────────────────────────────────────────────────
     // Handles barcode/QR scanner (auto-timeout 400ms) + manual SKIP+Enter.
@@ -2444,6 +2708,7 @@ $(document).ready(async function () {
         clearTimeout(_verifyTimer);
         _verifyTimer = null;
         _verifyCallbackRunning = false;
+        ScanPairing.stop();
         const finishBtn = $(document).find('#finishBuy');
         if (finishBtn.attr('step') == 1) {
             finishBtn.attr('step', 0).prop('disabled', false).find('span').text('Siguiente');

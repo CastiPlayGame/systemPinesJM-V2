@@ -57,8 +57,11 @@ const urlAPI = "http://192.168.0.158/newApi/"
 const urlAPI_AI = "http://multipartes.ddnsfree.com:2044"
 const urlAPI_AI_WS = "ws://multipartes.ddnsfree.com:2044"
 
-const apiKey = "NS20gEo80zV6F3WoxFOR5UKgztqilJ63"
+// Pusher Channels (scan-pairing). Secret stays server-side only.
+const PUSHER_KEY     = "2898b37648c1dad5dc78"
+const PUSHER_CLUSTER = "us2"
 
+const apiKey = "NS20gEo80zV6F3WoxFOR5UKgztqilJ63"
 
 const verifyCheck = 15
 const codeStatus = ["text-danger", "text-warning", "text-success"];

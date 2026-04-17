@@ -1927,6 +1927,22 @@ if (isset($_POST['FinishBuy'])) {
                         <div style="font-size:.62rem;color:#94a3b8;letter-spacing:.07em;text-transform:uppercase;margin-top:2px;">Revisados</div>
                     </div>
 
+                    <!-- Phone-pairing widget -->
+                    <div id="pairWidget" title="Emparejar m&oacute;vil (clic para ver QR)" style="display:flex;align-items:center;gap:10px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:999px;padding:5px 16px 5px 5px;cursor:pointer;white-space:nowrap;user-select:none;transition:border-color .2s,background .2s;">
+                        <div id="pairQrThumb" style="width:40px;height:40px;background:#fff;border:1px solid #e2e8f0;border-radius:50%;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">
+                            <i class="bi bi-phone" style="color:#94a3b8;font-size:1.1rem;"></i>
+                        </div>
+                        <div style="display:flex;flex-direction:column;line-height:1.1;text-align:left;">
+                            <div style="font-size:.78rem;color:#1e293b;font-weight:600;display:flex;align-items:center;gap:6px;">
+                                <span id="pairDot" style="width:8px;height:8px;border-radius:50%;background:#94a3b8;display:inline-block;"></span>
+                                <span id="pairStatus">Desconectado</span>
+                            </div>
+                            <div style="font-size:.62rem;color:#94a3b8;letter-spacing:.08em;text-transform:uppercase;margin-top:2px;font-variant-numeric:tabular-nums;">
+                                <span id="pairSession">&mdash;</span>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
