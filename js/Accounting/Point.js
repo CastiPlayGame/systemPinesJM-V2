@@ -1096,24 +1096,30 @@ class VerifyPass {
         } else {
             scans.forEach(scan => {
                 const isQR = scan.type === 'qr';
+                const isMobile = scan.type === 'qr' && scan.buy;
                 const timeStr = new Date(scan.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                const codeTrunc = scan.code && scan.code.length > 18 ? scan.code.slice(0, 14) + '...' : scan.code;
-                const qrBlock = isQR
-                    ? `<div class="text-center mt-2"><img src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(scan.code)}" style="border:1px solid #e5e7eb;border-radius:4px;" loading="lazy" alt="QR"></div>`
+                const codeDisplay = scan.code || '-';
+                const typeIcon = isQR
+                    ? '<i class="bi bi-qr-code-scan text-primary" title="Escaneado vía QR"></i>'
+                    : '<i class="bi bi-upc-scan text-secondary" title="Escaneado vía Barcode"></i>';
+                const mobileBadge = isMobile
+                    ? '<span class="badge bg-success ms-1" style="font-size:.6rem;"><i class="bi bi-phone-fill"></i></span>'
                     : '';
+
                 historyHtml += `
                 <div class="p-2 mb-2 rounded" style="background:${isQR?'#eff6ff':'#f9fafb'};border:1px solid ${isQR?'#bfdbfe':'#e5e7eb'};">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span class="fw-bold" style="font-size:.78rem;">
-                            ${isQR ? '<i class="bi bi-qr-code text-primary me-1"></i>QR' : '<i class="bi bi-upc-scan text-secondary me-1"></i>Barcode'}
-                        </span>
-                        <small class="text-muted">${timeStr}</small>
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="d-flex align-items-center gap-2" style="min-width:0;">
+                            <span style="font-size:1rem;">${typeIcon}</span>
+                            <div style="min-width:0;">
+                                <div class="fw-bold text-dark" style="font-size:.85rem;word-break:break-all;">${codeDisplay}</div>
+                                <div style="font-size:.7rem;color:#6b7280;">
+                                    Cant: <strong>${scan.qty}</strong>${scan.buy ? ` · Compra #${scan.buy}` : ''}${mobileBadge}
+                                </div>
+                            </div>
+                        </div>
+                        <small class="text-muted" style="font-size:.7rem;white-space:nowrap;">${timeStr}</small>
                     </div>
-                    <div class="mt-1" style="font-size:.72rem;color:#6b7280;">
-                        Cant: <strong>${scan.qty}</strong>${scan.buy ? ` &middot; Compra #${scan.buy}` : ''}
-                    </div>
-                    <div class="mt-1" style="font-size:.68rem;color:#9ca3af;word-break:break-all;">${codeTrunc}</div>
-                    ${qrBlock}
                 </div>`;
             });
         }
@@ -1174,7 +1180,7 @@ class VerifyPass {
                         <i class="bi bi-dash-lg"></i>
                     </button>
                     <input type="text" id="stepVol_${p.vol}" class="form-control text-center border-0 fw-bold"
-                           style="background:#f1f5f9;font-size:.9rem;" value="0" min="0" max="${p.remaining}"
+                           style="background:#f1f5f9;font-size:.9rem;" value="${p.remaining}" min="0" max="${p.remaining}"
                            oninput="this.value=this.value.replace(/[^0-9]/g,'')">
                     <button class="btn verifyStepperBtn" type="button" data-action="add" data-vol="${p.vol}"
                             style="background:#1e293b;color:#fff;border:none;border-radius:0 6px 6px 0;">
@@ -1861,6 +1867,48 @@ $(document).ready(async function () {
     });
 
     $(document).on('click', "#completBuy", function () {
+        if (_verifyMinimized) {
+            Swal.fire({
+                title: 'Tienes una verificaci\u00f3n en curso',
+                icon: 'warning',
+                html:
+                    '<div style="text-align:left;font-size:.88rem;line-height:1.65;">'+
+                    '<p class="mb-2">Actualmente hay una sesi\u00f3n de verificaci\u00f3n minimizada.</p>'+
+                    '<p class="mb-2">Si abres una compra diferente ahora:</p>'+
+                    '<ul style="padding-left:1.2rem;margin-bottom:.75rem;">'+
+                    '<li class="mb-1">Todo el <b>progreso de verificaci\u00f3n</b> (QR y c\u00f3digos de barra escaneados) se perder\u00e1.</li>'+
+                    '<li class="mb-1">Los <b>descuentos</b>, <b>d\u00edas de cr\u00e9dito</b> y <b>comentarios</b> ingresados se borrar\u00e1n.</li>'+
+                    '</ul>'+
+                    '<div class="alert alert-danger py-2 mb-0" style="font-size:.82rem;">'+
+                    '<i class="bi bi-x-circle me-1"></i>Esta acci\u00f3n no se puede deshacer.'+
+                    '</div></div>',
+                showCancelButton: true,
+                confirmButtonText: '<i class="bi bi-trash me-1"></i>S\u00ed, descartar y continuar',
+                cancelButtonText: 'Volver a la verificaci\u00f3n',
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#1e293b',
+                reverseButtons: true
+            }).then(function(result) {
+                if (!result.isConfirmed) return;
+                _verifyMinimized = false;
+                _verifyPacksSnapshot = null;
+                $('#verifyFab').remove();
+                var finishBtn = $(document).find('#finishBuy');
+                if (finishBtn.attr('step') == 1) {
+                    ScanPairing.stop();
+                    start_Reset.clearVerifyItems();
+                    finishBtn.attr('step', 0).prop('disabled', false).find('span').text('Siguiente');
+                    $(document).find('#backToMain').prop('hidden', true);
+                    $(document).find('#minimizeVerify').prop('hidden', true);
+                    $(document).find('#verifyList').addClass('d-none').removeClass('d-flex');
+                    $(document).find('#main').prop('hidden', false);
+                    $(document).find('.modal-dialog').removeClass('modal-fullscreen').addClass('modal-xl');
+                    $('#sidebar').css('z-index', '1090');
+                }
+                $(document).find('#completBuy').trigger('click');
+            });
+            return;
+        }
         if (Object.keys(Session.val.items).length == 0) {
             Swal.fire({
                 title: "!Error Critico¡",
@@ -2054,6 +2102,7 @@ $(document).ready(async function () {
             ScanPairing.start();
 
             btns.find("#backToMain").prop("hidden", false);
+            $(document).find("#minimizeVerify").prop("hidden", false);
             cont.find("#verifyList").removeClass("d-none").addClass("d-flex");
             cont.find("#main").prop("hidden", true);
             cont.find("#codePassed").html("0 / " + Object.keys(Session.val.items).length);
@@ -2089,9 +2138,193 @@ $(document).ready(async function () {
         btns.find("#finishBuy").prop("disabled", false);
 
         btns.find("#backToMain").prop("hidden", true);
+        $(document).find("#minimizeVerify").prop("hidden", true);
         cont.find("#main").prop("hidden", false);
         cont.find("#verifyList").addClass("d-none").removeClass("d-flex");
         cont.closest('.modal-dialog').removeClass('modal-fullscreen').addClass('modal-xl');
+    });
+
+    $(document).on('click', '#minimizeVerify', function() {
+        Swal.fire({
+            title: 'Minimizar verificación',
+            icon: 'info',
+            html:
+                '<div style="text-align:left;font-size:.88rem;line-height:1.65;">' +
+                '<p class="mb-2">Al minimizar podrás editar los productos y paquetes de la lista. Ten en cuenta lo siguiente:</p>' +
+                '<ul style="padding-left:1.2rem;margin-bottom:.75rem;">' +
+                '<li class="mb-1"><b>Si aumentas la cantidad de un paquete</b> — el progreso escaneado de ese paquete se conserva; solo faltará verificar la diferencia adicional.</li>' +
+                '<li class="mb-1"><b>Si reduces la cantidad de un paquete que tiene QR escaneados</b> — el historial completo de ese paquete se borrará y deberás volver a escanear.</li>' +
+                '<li class="mb-1"><b>Si reduces un paquete con solo códigos de barra</b> — se recortarán los registros automáticamente al nuevo máximo.</li>' +
+                '<li class="mb-1"><b>Si eliminas un paquete</b> — se borra su historial de escaneo.</li>' +
+                '<li class="mb-1"><b>Si añades un producto nuevo</b> — aparecerá sin verificar al restaurar.</li>' +
+                '</ul>' +
+                '<div class="alert alert-warning py-2 mb-0" style="font-size:.82rem;">' +
+                '<i class="bi bi-exclamation-triangle me-1"></i>' +
+                'Los descuentos, días de crédito y comentarios que hayas ingresado se conservan mientras no cierres el modal.' +
+                '</div></div>',
+            showCancelButton: true,
+            confirmButtonText: '<i class="bi bi-dash-lg me-1"></i>Minimizar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#1e293b',
+            cancelButtonColor: '#6c757d',
+            reverseButtons: true
+        }).then(function(result) {
+            if (!result.isConfirmed) return;
+            _verifyMinimized = true;
+            _verifyPacksSnapshot = {};
+            $.each(Session.val.items || {}, function(itemId, itemData) {
+                _verifyPacksSnapshot[itemId] = $.extend(true, {}, itemData.packs || {});
+            });
+            if (!$('#verifyFabStyle').length) {
+                $('head').append(
+                    '<style id="verifyFabStyle">' +
+                    '@keyframes vPulse{0%{box-shadow:0 0 0 0 rgba(59,130,246,.75)}70%{box-shadow:0 0 0 14px rgba(59,130,246,0)}100%{box-shadow:0 0 0 0 rgba(59,130,246,0)}}' +
+                    '@keyframes vDot{0%,100%{opacity:1}50%{opacity:.3}}' +
+                    '#verifyFab{position:fixed;bottom:24px;right:24px;z-index:9999;width:auto;height:48px;border-radius:999px;border:none;padding:0 20px;background:#1e293b;color:#fff;font-size:.88rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;' +
+                    'animation:vPulse 1.6s .1s ease-in-out infinite}' +
+                    '#verifyFab .vfab-dot{width:8px;height:8px;border-radius:50%;background:#3b82f6;flex-shrink:0;animation:vDot 1.6s ease-in-out infinite}' +
+                    'body.vmorph-out .modal-backdrop{opacity:0!important;transition:none!important}' +
+                    '</style>'
+                );
+            }
+            // ── Morph: modal → FAB ───────────────────────────────────────────
+            var $dialog = $('#modal .modal-dialog');
+            _verifyDialogRect = $dialog[0].getBoundingClientRect(); // cachear
+            var dr = _verifyDialogRect;
+            var fabW = 168, fabH = 48;
+            var fabL = window.innerWidth  - 24 - fabW;
+            var fabT = window.innerHeight - 24 - fabH;
+            // Overlay arranca en la posición/tamaño del modal-dialog
+            var $ov = $('<div id="vMorphOv">').css({
+                position:'fixed', zIndex:1065, pointerEvents:'none', overflow:'hidden',
+                left:dr.left+'px', top:dr.top+'px',
+                width:dr.width+'px', height:dr.height+'px',
+                borderRadius:'8px', background:'#1e293b',
+                transition:'none'
+            });
+            $('body').append($ov).addClass('vmorph-out');
+            $dialog.css('opacity', 0);
+            $ov[0].offsetHeight; // reflow
+            $ov.css({
+                transition:'left .42s cubic-bezier(.4,0,.2,1),top .42s cubic-bezier(.4,0,.2,1),' +
+                           'width .42s cubic-bezier(.4,0,.2,1),height .42s cubic-bezier(.4,0,.2,1),' +
+                           'border-radius .42s cubic-bezier(.4,0,.2,1)',
+                left:fabL+'px', top:fabT+'px',
+                width:fabW+'px', height:fabH+'px',
+                borderRadius:'999px'
+            });
+            setTimeout(function() {
+                $ov.remove();
+                $dialog.css('opacity','');
+                $('body').removeClass('vmorph-out');
+                if (!$('#verifyFab').length) {
+                    $('body').append(
+                        '<button id="verifyFab" title="Retomar verificaci\u00f3n">' +
+                        '<span class="vfab-dot"></span>' +
+                        '<i class="bi bi-patch-check-fill" style="font-size:1rem;"></i>' +
+                        '<span>Verificando\u2026</span>' +
+                        '</button>'
+                    );
+                }
+                $('#modal').modal('hide');
+            }, 430);
+        });
+    });
+
+
+    $(document).on('click', '#verifyFab', function() {
+        _verifyMinimized = false;
+        var $fab = $('#verifyFab');
+        var fabR = $fab[0].getBoundingClientRect();
+        var dr   = _verifyDialogRect || { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+
+        // Crear overlay en la posición exacta del FAB
+        var ov = document.createElement('div');
+        ov.id = 'vMorphOv';
+        ov.style.cssText =
+            'position:fixed;z-index:1065;pointer-events:none;' +
+            'left:' + fabR.left + 'px;top:' + fabR.top + 'px;' +
+            'width:' + fabR.width + 'px;height:' + fabR.height + 'px;' +
+            'border-radius:999px;background:#1e293b;opacity:1;transition:none;';
+        document.body.appendChild(ov);
+        $fab.remove();
+
+        // Reflow → transición FAB → modal
+        ov.offsetHeight;
+        ov.style.transition =
+            'left .44s cubic-bezier(.4,0,.2,1),top .44s cubic-bezier(.4,0,.2,1),' +
+            'width .44s cubic-bezier(.4,0,.2,1),height .44s cubic-bezier(.4,0,.2,1),' +
+            'border-radius .44s cubic-bezier(.4,0,.2,1)';
+        ov.style.left         = dr.left   + 'px';
+        ov.style.top          = dr.top    + 'px';
+        ov.style.width        = dr.width  + 'px';
+        ov.style.height       = dr.height + 'px';
+        ov.style.borderRadius = '8px';
+
+        // Mostrar modal cuando la expansión termina; luego desvanecer overlay
+        setTimeout(function() {
+            $('#modal').one('shown.bs.modal', function() {
+                // Fade-out con style directo para garantizar transición CSS
+                ov.style.transition = 'opacity .25s';
+                ov.offsetHeight; // reflow
+                ov.style.opacity = '0';
+                setTimeout(function() {
+                    if (ov.parentNode) ov.parentNode.removeChild(ov);
+                }, 270);
+
+                // Reconciliar contra snapshot: por pack individual
+                if (Session && Session.val && Session.val.items && _verifyPacksSnapshot) {
+                    $.each(Session.val.items, function(itemId, itemData) {
+                        if (!itemData.scannedInfo) return;
+                        var snap = _verifyPacksSnapshot[itemId];
+                        var curr = itemData.packs || {};
+                        if (!snap) return;
+                        var packModified = false;
+                        $.each(snap, function(vol, snapQty) {
+                            if (!curr[vol]) {
+                                if (itemData.scannedInfo[vol]) { delete itemData.scannedInfo[vol]; packModified = true; }
+                            } else if (parseInt(curr[vol]) < parseInt(snapQty)) {
+                                var scans = itemData.scannedInfo[vol];
+                                if (scans && scans.length > 0) {
+                                    if (scans.some(function(s) { return s.type === 'qr'; })) {
+                                        delete itemData.scannedInfo[vol];
+                                    } else {
+                                        var newMax = parseInt(curr[vol]), total = 0, trimmed = [];
+                                        for (var i = 0; i < scans.length; i++) {
+                                            var sq = parseInt(scans[i].qty) || 0;
+                                            if (total + sq <= newMax) { trimmed.push(scans[i]); total += sq; }
+                                        }
+                                        if (trimmed.length === 0) delete itemData.scannedInfo[vol];
+                                        else itemData.scannedInfo[vol] = trimmed;
+                                    }
+                                    packModified = true;
+                                }
+                            }
+                        });
+                        if (packModified) {
+                            delete itemData.scannedInfo.verified;
+                            delete itemData.scannedInfo.completedAt;
+                            new VerifyPass().checkIfItemFullyVerified(itemId);
+                        }
+                    });
+                    _verifyPacksSnapshot = null;
+                    Session.Save();
+                }
+                new VerifyPass().updateTableCodes();
+                new VerifyPass().updateVerify();
+                $(document).find('#codePassed').html(
+                    (function() {
+                        var done = 0, total = Object.keys(Session.val.items || {}).length;
+                        $.each(Session.val.items || {}, function(k, v) {
+                            if (v.scannedInfo && v.scannedInfo.verified === true) done++;
+                        });
+                        return done + ' / ' + total;
+                    })()
+                );
+                setTimeout(function() { $(document).find('#codeV').focus(); }, 100);
+            });
+            $('#modal').modal('show'); // DESPUÉS del handler para capturar shown aunque dispare síncronamente
+        }, 460);
     });
 
     // ── Scan-Pairing (phone → web via Pusher Channels) ─────────────────────────
@@ -2248,11 +2481,11 @@ $(document).ready(async function () {
 
         _handleScanResult: async function(data) {
             // Expected phone payload:
-            //   { ok, code, cb, qty, purchase_number, item: { uuid, id, description } }
+            //   { ok, code, cb, qty, purchase_number, qr_data, item: { uuid, id, description } }
             if (!data || data.ok === false || !data.code) return;
 
             const codeToSearch = String(data.code).toUpperCase();
-            const inputCode    = String(data.cb || data.code).toUpperCase();
+            const qrData       = String(data.qr_data || data.cb || data.code); // case original
             const qrAmount     = parseInt(data.qty);
             const qrBuyNum     = data.purchase_number || null;
 
@@ -2301,10 +2534,21 @@ $(document).ready(async function () {
                 return;
             }
 
-            const dup = itemData.scannedInfo[qrAmount] &&
-                        itemData.scannedInfo[qrAmount].some(s => s.code === inputCode);
-            if (dup) {
-                toast('warning', 'Móvil: duplicado', inputCode, 1500);
+            // Chequeo global: qr_data no puede estar ya en NINGÚN item de la sesión
+            let dupItemCode = null;
+            $.each(Session.val.items, function(sid, sItem) {
+                if (!sItem.scannedInfo) return;
+                $.each(sItem.scannedInfo, function(vol, scans) {
+                    if (!Array.isArray(scans)) return;
+                    if (scans.some(s => s.code === qrData && s.type === 'qr')) {
+                        dupItemCode = sItem.code || sid;
+                        return false;
+                    }
+                });
+                if (dupItemCode) return false;
+            });
+            if (dupItemCode) {
+                toast('warning', 'Móvil: QR duplicado en ' + dupItemCode, qrData, 1500);
                 ttsClass.hablar([{ role: 'speak', content: 'Código QR duplicado.' }]);
                 return;
             }
@@ -2313,7 +2557,7 @@ $(document).ready(async function () {
             itemData.scannedInfo[qrAmount].push({
                 buy: qrBuyNum,
                 qty: 1,
-                code: inputCode,
+                code: qrData,
                 type: 'qr',
                 timestamp: Date.now()
             });
@@ -2358,6 +2602,10 @@ $(document).ready(async function () {
     // No detectInputType, no listener accumulation.
     var _verifyCallbackRunning = false;
     var _verifyTimer = null;
+    var _scanBuffer = '';
+    var _verifyMinimized = false;
+    var _verifyPacksSnapshot = null;
+    var _verifyDialogRect = null;
 
     var _verifyCallback = async function(inputCode) {
         if (_verifyCallbackRunning) return;
@@ -2421,11 +2669,12 @@ $(document).ready(async function () {
                     });
                     
                     const data = await response.json();
-                    if (data && data.id) {
-                        codeToSearch = data.id;
-                        qrDataId = data.id;
-                        qrAmount = data.amount;
-                        qrBuyNum = data.purchase_number || null;
+                    const payload = (data && data.response) ? data.response : data;
+                    if (payload && payload.id) {
+                        codeToSearch = payload.id;
+                        qrDataId = payload.id;
+                        qrAmount = payload.amount;
+                        qrBuyNum = payload.purchase_number || null;
                     } else {
                         throw new Error("Invalid Token");
                     }
@@ -2452,7 +2701,29 @@ $(document).ready(async function () {
                 if (!itemData.scannedInfo) itemData.scannedInfo = {};
                 
                 if (isQR) {
+                    // Chequeo GLOBAL: el mismo token QR no puede estar en NINGÚN item de la sesión
+                    let dupItemCode = null;
+                    $.each(Session.val.items, function(sid, sItem) {
+                        if (!sItem.scannedInfo) return;
+                        $.each(sItem.scannedInfo, function(vol, scans) {
+                            if (!Array.isArray(scans)) return;
+                            if (scans.some(s => s.code === inputCode && s.type === 'qr')) {
+                                dupItemCode = sItem.code || sid;
+                                return false;
+                            }
+                        });
+                        if (dupItemCode) return false;
+                    });
+                    if (dupItemCode) {
+                        if (isQR) Swal.close();
+                        Swal.fire('Duplicado', `Este código QR ya fue registrado en <b>${dupItemCode}</b>.`, 'warning');
+                        ttsClass.hablar([{ role: "speak", content: "Código QR duplicado." }]);
+                        item.val("");
+                        return;
+                    }
+
                     if (!itemData.packs[qrAmount]) {
+                        if (isQR) Swal.close();
                         Swal.fire('Error', 'Este paquete de ' + qrAmount + ' no fue solicitado.', 'error');
                         ttsClass.hablar([{ role: "speak", content: "Denegado. Paquete no requerido." }]);
                         item.val("");
@@ -2466,17 +2737,9 @@ $(document).ready(async function () {
                     }
 
                     if (currentScanned + 1 > maxAllowed) {
+                        if (isQR) Swal.close();
                         Swal.fire('Denegado', 'Ya escaneaste todos los paquetes requeridos de ' + qrAmount + '.', 'error');
                         ttsClass.hablar([{ role: "speak", content: "Denegado. Paquetes excedidos." }]);
-                        item.val("");
-                        return;
-                    }
-
-                    const tokenDuplicate = itemData.scannedInfo[qrAmount] &&
-                        itemData.scannedInfo[qrAmount].some(s => s.code === inputCode);
-                    if (tokenDuplicate) {
-                        Swal.fire('Duplicado', 'Este código QR ya fue registrado anteriormente.', 'warning');
-                        ttsClass.hablar([{ role: "speak", content: "Código QR duplicado." }]);
                         item.val("");
                         return;
                     }
@@ -2567,7 +2830,7 @@ $(document).ready(async function () {
                                 <input type="text" id="stepVol_${p.vol}"
                                        class="form-control text-center border-0 fw-bold"
                                        style="background:#f1f5f9;font-size:.9rem;"
-                                       value="0" min="0" max="${p.remaining}"
+                                       value="${p.remaining}" min="0" max="${p.remaining}"
                                        oninput="this.value=this.value.replace(/[^0-9]/g,'')">
                                 <button class="btn verifyStepperBtn" type="button"
                                         data-action="add" data-vol="${p.vol}"
@@ -2673,30 +2936,42 @@ $(document).ready(async function () {
         var codeV = document.getElementById('codeV');
         if (!codeV) return;
 
+        // ── Entrada manual: el foco está en el input ──────────────────────────
+        if (document.activeElement === codeV) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                clearTimeout(_verifyTimer);
+                var val = codeV.value.trim().toUpperCase();
+                codeV.value = '';
+                _scanBuffer = '';
+                if (val) _verifyCallback(val);
+            }
+            // Cualquier otra tecla: dejar que el input la maneje normalmente
+            return;
+        }
+
+        // ── Ghost buffer: pistoleo sin pasar por el input ─────────────────────
         if (e.key === 'Enter') {
             e.preventDefault();
             clearTimeout(_verifyTimer);
-            var val = (codeV.value || '').trim().toUpperCase();
-            codeV.value = '';
-            if (val) _verifyCallback(val);
+            var buf = _scanBuffer.trim();
+            _scanBuffer = '';
+            if (buf) _verifyCallback(buf); // case original preservado
             return;
         }
 
         if (e.key.length !== 1 || e.ctrlKey || e.altKey || e.metaKey) return;
 
-        if (document.activeElement !== codeV) {
-            e.preventDefault();
-            codeV.focus();
-            codeV.value += e.key.toUpperCase();
-            clearTimeout(_verifyTimer);
-            _verifyTimer = setTimeout(function() {
-                var val = (codeV.value || '').trim().toUpperCase();
-                if (val && val !== 'SKIP') {
-                    codeV.value = '';
-                    _verifyCallback(val);
-                }
-            }, 400);
-        }
+        e.preventDefault();
+        _scanBuffer += e.key; // sin toUpperCase — QR y barcodes con su case real
+        clearTimeout(_verifyTimer);
+        _verifyTimer = setTimeout(function() {
+            var buf = _scanBuffer.trim();
+            _scanBuffer = '';
+            if (buf && buf.toUpperCase() !== 'SKIP') {
+                _verifyCallback(buf);
+            }
+        }, 400);
     });
 
 
@@ -2707,12 +2982,15 @@ $(document).ready(async function () {
     $(document).on('hidden.bs.modal', '#modal', function() {
         clearTimeout(_verifyTimer);
         _verifyTimer = null;
+        _scanBuffer = '';
+        if (_verifyMinimized) return; // Solo minimizado: conservar todo el estado
         _verifyCallbackRunning = false;
         ScanPairing.stop();
         const finishBtn = $(document).find('#finishBuy');
         if (finishBtn.attr('step') == 1) {
             finishBtn.attr('step', 0).prop('disabled', false).find('span').text('Siguiente');
             $(document).find('#backToMain').prop('hidden', true);
+            $(document).find('#minimizeVerify').prop('hidden', true);
             $(document).find('#verifyList').addClass('d-none').removeClass('d-flex');
             $(document).find('#main').prop('hidden', false);
             $(document).find('.modal-dialog').removeClass('modal-fullscreen').addClass('modal-xl');

@@ -1755,7 +1755,14 @@ if (isset($_POST['FinishBuy'])) {
         <h4 class="modal-title fw-bold mb-0">
             <i class="bi bi-cart-check me-2"></i>Finalización de Compra
         </h4>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        <div class="d-flex align-items-center gap-2">
+            <button type="button" id="minimizeVerify" hidden
+                    title="Minimizar verificación"
+                    style="background:rgba(255,255,255,.15);border:none;border-radius:6px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1rem;cursor:pointer;padding:0;">
+                <i class="bi bi-dash-lg"></i>
+            </button>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
     </div>
 
     <div id="main" class="modal-body p-4">
@@ -1906,17 +1913,16 @@ if (isset($_POST['FinishBuy'])) {
                         <div class="fw-semibold mb-0" style="font-size:1rem;color:#1e293b;letter-spacing:.01em;">
                             <i class="bi bi-patch-check-fill me-1" style="color:#3b82f6;"></i>Verificación
                         </div>
-                        <div style="font-size:.72rem;color:#94a3b8;margin-top:3px;">Escanea o escribe SKIP para omitir</div>
+                        <div style="font-size:.72rem;color:#94a3b8;margin-top:3px;">Pistola detectada automáticamente · SKIP+Enter para omitir</div>
                     </div>
 
                     <div class="flex-grow-1" style="max-width:520px;margin:0 auto;">
                         <div style="display:flex;align-items:center;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:999px;padding:7px 16px;gap:10px;transition:border-color .2s;">
-                            <i class="bi bi-upc-scan" style="color:#3b82f6;font-size:1.05rem;flex-shrink:0;"></i>
+                            <i class="bi bi-keyboard" style="color:#3b82f6;font-size:1.05rem;flex-shrink:0;"></i>
                             <input type="text" id="codeV"
-                                   placeholder="Escanea el código..."
-                                   oninput="this.value = this.value.toUpperCase()"
+                                   placeholder="Manual: código de barra o SKIP..."
                                    autocomplete="off"
-                                   style="background:transparent;border:none;outline:none;color:#1e293b;font-size:.95rem;caret-color:#3b82f6;width:100%;"
+                                   style="background:transparent;border:none;outline:none;color:#1e293b;font-size:.95rem;caret-color:#3b82f6;width:100%;text-transform:uppercase;"
                                    onfocus="this.closest(\'div[style*=border-radius]\').style.borderColor=\'#3b82f6\'"
                                    onblur="this.closest(\'div[style*=border-radius]\').style.borderColor=\'#e2e8f0\'">
                         </div>
@@ -2251,8 +2257,8 @@ if (isset($_POST['Sales'])) {
                                                 </div>
                                                 <div class="progress mt-3" style="height: 10px;">
                                                     <div class="progress-bar bg-primary" role="progressbar" 
-                                                        style="width: ' . ($sum / $Cost * 100) . '%"
-                                                        aria-valuenow="' . ($sum / $Cost * 100) . '" 
+                                                        style="width: ' . ($Cost != 0 ? ($sum / $Cost * 100) : 0) . '%"
+                                                        aria-valuenow="' . ($Cost != 0 ? ($sum / $Cost * 100) : 0) . '" 
                                                         aria-valuemin="0" 
                                                         aria-valuemax="100">
                                                     </div>
@@ -2401,7 +2407,8 @@ if (isset($_POST['Sales'])) {
                 <div class="tab-pane fade" id="nav-content" role="tabpanel" aria-labelledby="nav-content-tab">
                         ';
                         $depoExist = [];
-                        foreach (json_decode($row['buy'], true) as $x => $y) {
+                        $buyRawData = json_decode($row['buy'], true);
+                        foreach ($buyRawData as $x => $y) {
                             if (!array_key_exists($y['depo'], $depoExist)) {
                                 $depoExist[$y['depo']] = 0;
                             }
@@ -2409,11 +2416,78 @@ if (isset($_POST['Sales'])) {
                                 $depoExist[$y['depo']] += ($p * $n);
                             }
                         }
+                        $allProvBuyIds = [];
+                        foreach ($buyRawData as $x => $y) {
+                            if (!empty($y['scannedInfo'])) {
+                                foreach ($y['scannedInfo'] as $packSize => $scans) {
+                                    if (!is_array($scans)) continue;
+                                    foreach ($scans as $scan) {
+                                        if (isset($scan['buy']) && !is_null($scan['buy'])) {
+                                            $allProvBuyIds[] = intval($scan['buy']);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        $allProvBuyIds = array_unique($allProvBuyIds);
+                        $provPurchasesMap = [];
+                        if (!empty($allProvBuyIds)) {
+                            $idsStr = implode(',', array_map('intval', $allProvBuyIds));
+                            $sqlProv = "SELECT id, content FROM provider_purchases WHERE id IN ($idsStr)";
+                            $resultProv = mysqli_query($conn, $sqlProv);
+                            while ($rp = mysqli_fetch_assoc($resultProv)) {
+                                $provPurchasesMap[intval($rp['id'])] = json_decode($rp['content'], true);
+                            }
+                        }
+                        $buyKeys = array_keys($buyRawData);
+                        $totalProvCost = 0;
+                        $totalProfit = 0;
+                        $hasAnyProvData = false;
+                        $itemProvData = [];
+                        foreach ($buyContent as $idx => $bc) {
+                            $rawKey = $buyKeys[$idx] ?? null;
+                            $rawItem = ($rawKey !== null && isset($buyRawData[$rawKey])) ? $buyRawData[$rawKey] : [];
+                            $scannedInfo = $rawItem['scannedInfo'] ?? null;
+                            $itemProvCost = 0;
+                            $hasProvData = false;
+                            $scanRows = [];
+                            if (!empty($scannedInfo)) {
+                                foreach ($scannedInfo as $packSize => $scans) {
+                                    if (!is_array($scans)) continue;
+                                    foreach ($scans as $scan) {
+                                        $provUnitCost = null;
+                                        if (isset($scan['buy']) && !is_null($scan['buy'])) {
+                                            $buyId = intval($scan['buy']);
+                                            if (isset($provPurchasesMap[$buyId])) {
+                                                foreach ($provPurchasesMap[$buyId] as $pi => $pitem) {
+                                                    if ($pitem['code'] === $bc['code']) {
+                                                        $uCost = floatval($pitem['price']['initial']);
+                                                        foreach ($pitem['price']['additionals'] as $add) {
+                                                            $uCost += floatval($add['value']);
+                                                        }
+                                                        $provUnitCost = $uCost;
+                                                        break;
+                                                    }
+                                                }
+                                                if ($provUnitCost !== null) {
+                                                    $hasProvData = true;
+                                                    $hasAnyProvData = true;
+                                                    $itemProvCost += $provUnitCost * intval($packSize) * intval($scan['qty']);
+                                                }
+                                            }
+                                        }
+                                        $scanRows[] = ['packSize' => $packSize, 'code' => $scan['code'], 'type' => $scan['type'], 'qty' => $scan['qty'], 'buy' => $scan['buy'], 'provUnitCost' => $provUnitCost, 'timestamp' => $scan['timestamp'] ?? null];
+                                    }
+                                }
+                            }
+                            if ($hasProvData) { $totalProvCost += $itemProvCost; $totalProfit += ($bc['cost'] - $itemProvCost); }
+                            $itemProvData[] = ['provCost' => $itemProvCost, 'hasProvData' => $hasProvData, 'profit' => $hasProvData ? ($bc['cost'] - $itemProvCost) : null, 'scanRows' => $scanRows];
+                        }
                         echo '
                         <div class="card shadow-sm border-0 bg-light mb-3">
                             <div class="card-body">
                                 <div class="row">
-                                    <div class="col-md-6">
+                                    <div class="col-md-4">
                                         <h5 class="card-title">Resumen de Contenido</h5>
                                         <div class="mb-2">
                                             <span class="fw-bold">Cantidad Total:</span>
@@ -2424,7 +2498,18 @@ if (isset($_POST['Sales'])) {
                                             <small class="d-block">' . number_format($Cost, 2, ',', '.') . '$</small>
                                         </div>
                                     </div>
-                                    <div class="col-md-6">
+                                    <div class="col-md-4">
+                                        <h5 class="card-title">Resumen Proveedor</h5>
+                                        <div class="mb-2">
+                                            <span class="fw-bold">Costo Proveedor:</span>
+                                            <small class="d-block text-danger">' . ($hasAnyProvData ? number_format($totalProvCost, 2, ',', '.') . '$' : '—') . '</small>
+                                        </div>
+                                        <div class="mb-2">
+                                            <span class="fw-bold">Ganancia Estimada:</span>
+                                            <small class="d-block ' . ($hasAnyProvData ? ($totalProfit >= 0 ? 'text-success' : 'text-danger') : '') . '">' . ($hasAnyProvData ? number_format($totalProfit, 2, ',', '.') . '$' : '—') . '</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
                                         <h5 class="card-title">Depósitos</h5>
                                         <div class="d-flex flex-wrap gap-2">
                                             ';
@@ -2446,24 +2531,29 @@ if (isset($_POST['Sales'])) {
                                         <th class="text-white">Depósito</th>
                                         <th class="text-white">Cantidades</th>
                                         <th class="text-white">Unitario</th>
-                                        <th class="text-white">Costo</th>
+                                        <th class="text-white">Costo Venta</th>
                                         <th class="text-white">Total</th>
+                                        <th class="text-white">Costo Proveedor</th>
+                                        <th class="text-white">Ganancia</th>
                                     </tr>
                                 </thead>
-                                <tbody style="max-height: 40vh; overflow-y: auto;">';
-                                    foreach ($buyContent as $y) {
-                                        echo '
-                                        <tr>
-                                            <td>' . $y['code'] . '</td>
-                                            <td>Depósito ' . $y['depo'] . '</td>
-                                            <td>' . implode(" , ", $y['packs']) . '</td>
-                                            <td>' . number_format($y['unitDisc'], 3, ',', '.') . '$</td>
-                                            <td>' . number_format($y['cost'], 2, ',', '.') . '$</td>
-                                            <td>' . $y['total'] . '</td>
-                                        </tr>
-                                        ';
-                                    }
+                                <tbody>';
+                                foreach ($buyContent as $idx => $y) {
+                                    $pd = $itemProvData[$idx];
+                                    $profitClass = ($pd['profit'] !== null) ? ($pd['profit'] >= 0 ? 'text-success' : 'text-danger') : '';
                                     echo '
+                                    <tr>
+                                        <td>' . $y['code'] . '</td>
+                                        <td>Depósito ' . $y['depo'] . '</td>
+                                        <td>' . implode(" , ", $y['packs']) . '</td>
+                                        <td>' . number_format($y['unitDisc'], 3, ',', '.') . '$</td>
+                                        <td>' . number_format($y['cost'], 2, ',', '.') . '$</td>
+                                        <td>' . $y['total'] . '</td>
+                                        <td>' . ($pd['hasProvData'] ? number_format($pd['provCost'], 2, ',', '.') . '$' : '<span class="text-muted">—</span>') . '</td>
+                                        <td class="' . $profitClass . '">' . ($pd['profit'] !== null ? number_format($pd['profit'], 2, ',', '.') . '$' : '<span class="text-muted">—</span>') . '</td>
+                                    </tr>';
+                                }
+                                echo '
                                 </tbody>
                             </table>
                         </div>
